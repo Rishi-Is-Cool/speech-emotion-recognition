@@ -1,0 +1,2173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Speech Emotion Recognition</title>
+<meta name="description" content="Record your voice and see which of six emotions it carries, with the evidence behind the answer." />
+<meta name="theme-color" content="#f3f1ea" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#0b0b0a" media="(prefers-color-scheme: dark)" />
+<meta property="og:title" content="Speech Emotion Recognition" />
+<meta property="og:description" content="Record your voice and see which of six emotions it carries, with the evidence behind the answer." />
+<!-- Set at deploy time to the public API's URL. Empty = auto-detect (same origin, then localhost). -->
+<meta name="ser-api" content="" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230e0e0c'/%3E%3Cg fill='%23f3f1ea'%3E%3Crect x='7' y='12' width='3' height='8' rx='1.5'/%3E%3Crect x='12' y='8' width='3' height='16' rx='1.5'/%3E%3Crect x='17' y='5' width='3' height='22' rx='1.5'/%3E%3Crect x='22' y='10' width='3' height='12' rx='1.5'/%3E%3C/g%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400..900&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* =====================================================================================
+     Design system. UI chrome is monochrome ink-on-paper; colour is reserved for the six
+     emotions (validated categorical palette, fixed alphabetical slots) and the diverging
+     supports/opposes pair, so data is always the most colourful thing on screen.
+     ===================================================================================== */
+  :root {
+    color-scheme: light;
+    --page:       #f3f1ea;
+    --surface:    #fbfaf6;
+    --raised:     #ffffff;
+    --ink:        #0e0e0c;
+    --ink-2:      #4a4944;
+    --ink-muted:  #85837b;
+    --gridline:   #e3e0d6;
+    --baseline:   #c3c0b4;
+    --border:     rgba(14,14,12,0.12);
+    --zero-gray:  #ebe8df;
+    --accent:     #0e0e0c;
+    --accent-ink: #f3f1ea;
+    --wash:       rgba(14,14,12,0.045);
+    --shadow:     0 1px 2px rgba(14,14,12,0.04), 0 8px 24px -12px rgba(14,14,12,0.10);
+    --glow-a:     rgba(249,115,22,0.30);
+    --glow-b:     rgba(129,140,248,0.30);
+
+    --c-angry:   #2a78d6;
+    --c-disgust: #eb6834;
+    --c-fear:    #1baf7a;
+    --c-happy:   #eda100;
+    --c-neutral: #e87ba4;
+    --c-sad:     #008300;
+
+    --div-pos: #2a78d6;
+    --div-neg: #e34948;
+    --seq-400: #3987e5;
+
+    --status-good:     #0ca30c;
+    --status-warning:  #fab219;
+    --status-serious:  #ec835a;
+    --status-critical: #d03b3b;
+
+    --f-display: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --f-body:    system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --f-mono:    "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+    --radius:    16px;
+    --maxw:      1120px;
+    --gutter:    clamp(16px, 4vw, 32px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --page:      #0b0b0a;
+      --surface:   #161614;
+      --raised:    #1d1d1b;
+      --ink:       #f3f1ea;
+      --ink-2:     #bdbab0;
+      --ink-muted: #8a877e;
+      --gridline:  #2a2a27;
+      --baseline:  #3a3a36;
+      --border:    rgba(243,241,234,0.12);
+      --zero-gray: #2c2c29;
+      --accent:    #f3f1ea;
+      --accent-ink:#0b0b0a;
+      --wash:      rgba(243,241,234,0.06);
+      --shadow:    0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.6);
+      --glow-a:    rgba(249,115,22,0.16);
+      --glow-b:    rgba(129,140,248,0.18);
+      --c-angry:   #3987e5;
+      --c-disgust: #d95926;
+      --c-fear:    #199e70;
+      --c-happy:   #c98500;
+      --c-neutral: #d55181;
+      --c-sad:     #008300;
+      --div-pos:   #3987e5;
+      --div-neg:   #e66767;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page:      #0b0b0a;
+    --surface:   #161614;
+    --raised:    #1d1d1b;
+    --ink:       #f3f1ea;
+    --ink-2:     #bdbab0;
+    --ink-muted: #8a877e;
+    --gridline:  #2a2a27;
+    --baseline:  #3a3a36;
+    --border:    rgba(243,241,234,0.12);
+    --zero-gray: #2c2c29;
+    --accent:    #f3f1ea;
+    --accent-ink:#0b0b0a;
+    --wash:      rgba(243,241,234,0.06);
+    --shadow:    0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.6);
+    --glow-a:    rgba(249,115,22,0.16);
+    --glow-b:    rgba(129,140,248,0.18);
+    --c-angry:   #3987e5;
+    --c-disgust: #d95926;
+    --c-fear:    #199e70;
+    --c-happy:   #c98500;
+    --c-neutral: #d55181;
+    --c-sad:     #008300;
+    --div-pos:   #3987e5;
+    --div-neg:   #e66767;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; font-family: var(--f-body); font-size: 15.5px; line-height: 1.6;
+    background: var(--page); color: var(--ink); -webkit-font-smoothing: antialiased;
+    padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right);
+  }
+  /* the hero glow deliberately bleeds past the content edge; clip (not hidden) so the sticky header still works */
+  html, body { overflow-x: clip; }
+  ::selection { background: var(--ink); color: var(--page); }
+  :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 6px; }
+  a { color: inherit; }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    background: color-mix(in srgb, var(--page) 86%, transparent);
+    backdrop-filter: saturate(1.4) blur(12px); -webkit-backdrop-filter: saturate(1.4) blur(12px);
+    border-bottom: 1.5px solid var(--ink);
+  }
+  .topbar-inner {
+    max-width: var(--maxw); margin: 0 auto; padding: 0 var(--gutter);
+    height: 60px; display: flex; align-items: center; gap: 24px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); white-space: nowrap; }
+  .brand-mark {
+    font-family: var(--f-mono); font-size: 11px; font-weight: 700; letter-spacing: .12em;
+    background: var(--ink); color: var(--page); padding: 4px 7px; border-radius: 4px;
+  }
+  .brand-name { font-family: var(--f-display); font-size: 15px; font-weight: 750; letter-spacing: -.01em; }
+  nav.main { display: flex; gap: 2px; margin-left: auto; }
+  nav.main a {
+    font-family: var(--f-mono); font-size: 12px; font-weight: 600; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--ink-2); text-decoration: none;
+    padding: 8px 12px; border-radius: 999px;
+  }
+  nav.main a:hover { color: var(--ink); background: var(--wash); }
+  nav.main a[aria-current="page"] { color: var(--page); background: var(--ink); }
+  .topbar-tools { display: flex; align-items: center; gap: 8px; flex: none; }
+
+  .conn {
+    display: inline-flex; align-items: center; gap: 7px; height: 32px;
+    font-family: var(--f-mono); font-size: 11px; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--ink-2); font-weight: 600;
+    border: 1px solid var(--border); border-radius: 999px; padding: 0 12px 0 10px;
+    background: transparent; cursor: pointer;
+  }
+  .conn:hover { background: var(--wash); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-muted); flex: none; }
+  .dot.ok   { background: var(--status-good); box-shadow: 0 0 0 3px color-mix(in srgb, var(--status-good) 22%, transparent); }
+  .dot.bad  { background: var(--status-critical); }
+  .dot.wait { background: var(--status-warning); animation: blink 1.2s ease-in-out infinite; }
+  @keyframes blink { 50% { opacity: .35; } }
+
+  .icon-btn {
+    border: 1px solid var(--border); background: transparent; color: var(--ink);
+    width: 36px; height: 36px; border-radius: 999px; cursor: pointer; padding: 0;
+    display: grid; place-items: center; font-size: 14px;
+  }
+  .icon-btn:hover { background: var(--wash); }
+  .menu-btn { display: none; }
+  .menu-btn span, .menu-btn span::before, .menu-btn span::after {
+    content: ""; display: block; width: 15px; height: 1.5px; background: var(--ink);
+    position: relative; transition: transform .2s, background .2s;
+  }
+  .menu-btn span::before { position: absolute; top: -5px; }
+  .menu-btn span::after  { position: absolute; top: 5px; }
+  .menu-btn[aria-expanded="true"] span { background: transparent; }
+  .menu-btn[aria-expanded="true"] span::before { transform: translateY(5px) rotate(45deg); }
+  .menu-btn[aria-expanded="true"] span::after  { transform: translateY(-5px) rotate(-45deg); }
+
+  /* ---------- layout ---------- */
+  main { max-width: var(--maxw); margin: 0 auto; padding: 0 var(--gutter) 96px; }
+  .route { display: none; }
+  .route.active { display: block; animation: fade .22s ease-out; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .section { margin-bottom: 56px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+
+  /* ---------- type ---------- */
+  .eyebrow {
+    font-family: var(--f-mono); font-size: 11.5px; font-weight: 600; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--ink-2);
+  }
+  .eyebrow::before { content: "[ "; color: var(--ink-muted); }
+  .eyebrow::after  { content: " ]"; color: var(--ink-muted); }
+  h1, h2, h3 { font-family: var(--f-display); color: var(--ink); }
+  h1 {
+    font-size: clamp(38px, 6.4vw, 78px); line-height: .98; letter-spacing: -.035em;
+    margin: 14px 0 0; font-weight: 800;
+  }
+  h2 { font-size: clamp(22px, 2.6vw, 30px); line-height: 1.15; letter-spacing: -.02em; margin: 0 0 6px; font-weight: 780; }
+  h3 { font-size: 16.5px; line-height: 1.3; letter-spacing: -.01em; margin: 0 0 6px; font-weight: 720; }
+  .lede { font-size: clamp(16px, 1.6vw, 19px); line-height: 1.55; color: var(--ink-2); max-width: 60ch; margin: 18px 0 0; }
+  p { margin: 0 0 12px; }
+  .sub { color: var(--ink-2); font-size: 14.5px; }
+  .fine { color: var(--ink-muted); font-size: 13px; }
+  code { font-family: var(--f-mono); font-size: .9em; background: var(--wash); padding: 1px 5px; border-radius: 4px; }
+  a.link { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+
+  .page-head { padding: clamp(40px, 7vw, 76px) 0 clamp(28px, 4vw, 40px); border-bottom: 1.5px solid var(--ink); margin-bottom: 40px; position: relative; }
+
+  /* ---------- hero (overview) ---------- */
+  .hero { position: relative; isolation: isolate; padding: clamp(48px, 9vw, 112px) 0 clamp(36px, 5vw, 56px); border-bottom: 1.5px solid var(--ink); margin-bottom: 48px; }
+  .hero::before {
+    content: ""; position: absolute; z-index: -1; pointer-events: none;
+    inset: -60px -20% 10% -20%;
+    background:
+      radial-gradient(38% 55% at 30% 30%, var(--glow-a), transparent 70%),
+      radial-gradient(40% 60% at 72% 40%, var(--glow-b), transparent 72%);
+    filter: blur(30px);
+  }
+  .hero h1 { font-size: clamp(46px, 9vw, 118px); max-width: 12ch; }
+  .hero .lede { margin-top: 22px; }
+  .hero-ctas { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 30px; }
+  .hero-stats { display: flex; gap: 0; margin-top: 44px; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 22px; }
+  .hero-stat { padding: 0 28px; border-left: 1.5px solid var(--ink); min-width: 140px; }
+  .hero-stat:first-child { padding-left: 0; border-left: none; }
+  .hero-stat b { display: block; font-family: var(--f-display); font-size: clamp(30px, 3.6vw, 44px); line-height: 1; letter-spacing: -.03em; font-weight: 800; }
+  .hero-stat span { display: block; margin-top: 8px; font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-muted); max-width: 22ch; line-height: 1.5; }
+  .wave { display: flex; align-items: center; gap: 3px; height: 34px; margin-top: 30px; }
+  .wave i { display: block; width: 3px; border-radius: 3px; background: var(--ink); opacity: .85; animation: wave 1.6s ease-in-out infinite; }
+  @keyframes wave { 0%, 100% { transform: scaleY(.35); } 50% { transform: scaleY(1); } }
+
+  /* ---------- surfaces ---------- */
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: clamp(18px, 2.4vw, 26px); box-shadow: var(--shadow); }
+  .panel + .panel { margin-top: 16px; }
+  .panel-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .panel-head h2 { margin: 0; font-size: 19px; }
+
+  /* ---------- controls ---------- */
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  label.field { display: block; font-family: var(--f-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; color: var(--ink-2); margin-bottom: 7px; }
+  input[type="text"], input[type="url"], select {
+    font-family: inherit; font-size: 15px; color: var(--ink); height: 44px;
+    background: var(--raised); border: 1px solid var(--border); border-radius: 12px; padding: 0 14px; min-width: 0;
+  }
+  input[type="text"]:focus, input[type="url"]:focus, select:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px var(--wash); }
+  .grow { flex: 1; min-width: 180px; }
+
+  button {
+    font-family: inherit; font-size: 14px; font-weight: 600; letter-spacing: -.005em;
+    height: 42px; border-radius: 999px; padding: 0 18px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--raised); color: var(--ink);
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap;
+    transition: transform .12s ease, background .15s, border-color .15s, opacity .15s;
+  }
+  button:hover:not(:disabled) { border-color: var(--ink); }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.primary { background: var(--ink); border-color: var(--ink); color: var(--page); }
+  button.primary:hover:not(:disabled) { opacity: .88; }
+  button.rec-on { background: var(--status-critical); border-color: var(--status-critical); color: #fff; }
+  button.lg { height: 50px; padding: 0 26px; font-size: 15px; }
+  a > button { pointer-events: none; }
+  a:has(> button) { text-decoration: none; display: inline-flex; }
+
+  .seg { display: inline-flex; background: var(--page); border: 1px solid var(--border); border-radius: 999px; padding: 4px; gap: 2px; }
+  .seg button { border: none; background: transparent; height: 36px; padding: 0 16px; color: var(--ink-2); font-size: 13.5px; }
+  .seg button[aria-selected="true"] { background: var(--ink); color: var(--page); }
+
+  .file-btn { position: relative; display: inline-flex; }
+  .file-btn input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+  .file-btn > span {
+    pointer-events: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: 42px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--border);
+    background: var(--raised); font-weight: 600; font-size: 14px;
+  }
+  .file-btn:hover > span { border-color: var(--ink); }
+  .file-btn:focus-within > span { outline: 2px solid var(--ink); outline-offset: 2px; }
+  details.server { margin-top: 20px; border-top: 1px solid var(--gridline); padding-top: 14px; }
+  details.server summary { font-family: var(--f-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); cursor: pointer; }
+  details.server[open] summary { margin-bottom: 12px; }
+
+  /* ---------- clip strip ---------- */
+  .clipstrip {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    border: 1px dashed var(--baseline); border-radius: 14px; padding: 12px 12px 12px 16px;
+    background: var(--page); margin-top: 18px;
+  }
+  .clipstrip .meta { font-size: 13.5px; color: var(--ink-2); }
+  .clipstrip .meta strong { color: var(--ink); font-weight: 700; }
+
+  /* ---------- result ---------- */
+  .verdict {
+    border: 1.5px solid var(--ink); border-radius: var(--radius); background: var(--surface);
+    padding: clamp(20px, 3vw, 32px); display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap;
+  }
+  .verdict-main { flex: 1; min-width: 240px; }
+  .verdict .eyebrow { margin-bottom: 10px; display: block; }
+  .emotion-word {
+    font-family: var(--f-display); font-size: clamp(44px, 7vw, 76px); line-height: 1; letter-spacing: -.035em;
+    font-weight: 800; text-transform: capitalize; display: flex; align-items: center; gap: 16px;
+  }
+  .emotion-swatch { width: 14px; height: .8em; border-radius: 4px; flex: none; }
+  .conf-line { margin-top: 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .conf-num { font-family: var(--f-display); font-size: 24px; font-weight: 780; letter-spacing: -.02em; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600;
+    padding: 5px 12px; border-radius: 999px; border: 1px solid var(--border); color: var(--ink-2);
+  }
+  .verdict-aside { flex: 0 0 250px; border-left: 1px solid var(--border); padding-left: 24px; font-size: 13px; color: var(--ink-2); margin: 0; }
+  .kv { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--gridline); }
+  .kv:last-child { border-bottom: none; }
+  .kv dt { color: var(--ink-muted); font-family: var(--f-mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; padding-top: 2px; }
+  .kv dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
+  .summary-line { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--gridline); font-size: 15px; color: var(--ink-2); max-width: 70ch; }
+  .summary-line b { color: var(--ink); font-weight: 700; }
+
+  /* ---------- probability bars ---------- */
+  .bar-row { display: grid; grid-template-columns: 80px 1fr 56px; align-items: center; gap: 12px; padding: 4px 0; }
+  .bar-label { font-size: 13.5px; text-transform: capitalize; color: var(--ink); }
+  .bar-track { height: 18px; background: var(--zero-gray); border-radius: 4px; overflow: hidden; }
+  .bar-fill { display: block; height: 100%; border-radius: 0 4px 4px 0; transition: width .5s cubic-bezier(.2,.7,.3,1); }
+  .bar-val { font-size: 13px; color: var(--ink-2); text-align: right; font-variant-numeric: tabular-nums; }
+  .bar-row.top .bar-label { font-weight: 750; }
+  .bar-row.top .bar-val { color: var(--ink); font-weight: 700; }
+  table.probs { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.probs th, table.probs td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--gridline); }
+  table.probs th { font-family: var(--f-mono); color: var(--ink-muted); font-weight: 600; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; }
+  table.probs td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .swatch-sm { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 9px; vertical-align: baseline; }
+
+  /* ---------- timeline ---------- */
+  .tl-wrap { position: relative; }
+  .tl-track { display: flex; gap: 2px; height: 180px; position: relative; }
+  .tl-win { position: relative; height: 100%; cursor: pointer; min-width: 12px; border-radius: 6px; }
+  .tl-win:hover { background: var(--wash); }
+  .tl-win[aria-selected="true"] { background: var(--wash); box-shadow: inset 0 0 0 1px var(--border); }
+  .tl-bar { position: absolute; left: 3px; right: 3px; border-radius: 4px 4px 0 0; }
+  .tl-bar.neg { border-radius: 0 0 4px 4px; }
+  .tl-zero { position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--baseline); pointer-events: none; }
+  .tl-flag { position: absolute; left: 50%; transform: translateX(-50%); font-family: var(--f-mono); font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); white-space: nowrap; }
+  .tl-axis { display: flex; gap: 2px; margin-top: 8px; }
+  .tl-axis span { flex: 1; text-align: center; font-family: var(--f-mono); font-size: 10.5px; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 16px; font-size: 12.5px; color: var(--ink-2); }
+  .legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 7px; vertical-align: -1px; }
+  .evidence { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--gridline); }
+  .evidence-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 18px; }
+  .ev-k { font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: 4px; }
+  .ev-v { font-family: var(--f-display); font-size: 18px; font-weight: 750; letter-spacing: -.01em; }
+  .energy-track { height: 7px; border-radius: 4px; background: var(--zero-gray); overflow: hidden; margin-top: 8px; }
+  .energy-fill { display: block; height: 100%; background: var(--seq-400); border-radius: 0 4px 4px 0; }
+  .tip {
+    position: fixed; z-index: 90; pointer-events: none; opacity: 0;
+    background: var(--ink); color: var(--page); font-family: var(--f-mono); font-size: 11.5px;
+    padding: 6px 9px; border-radius: 6px; transition: opacity .12s; font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .tip.on { opacity: 1; }
+
+  /* ---------- notes ---------- */
+  .note { border: 1px solid var(--border); border-left: 3px solid var(--status-warning); background: var(--surface); padding: 13px 16px; border-radius: 10px; font-size: 13.5px; color: var(--ink-2); }
+  .note + .note { margin-top: 10px; }
+  .note.err { border-left-color: var(--status-critical); color: var(--ink); }
+  .note.info { border-left-color: var(--ink); }
+  .note b { color: var(--ink); }
+
+  /* ---------- steps & stats ---------- */
+  .steps { counter-reset: s; display: grid; gap: 0; }
+  .step { display: grid; grid-template-columns: 40px 1fr; gap: 16px; padding: 18px 0; border-bottom: 1px solid var(--gridline); }
+  .step:first-child { padding-top: 4px; }
+  .step:last-child { border-bottom: none; padding-bottom: 4px; }
+  .step::before {
+    counter-increment: s; content: "0" counter(s);
+    font-family: var(--f-mono); font-size: 12px; font-weight: 700; color: var(--ink);
+    border: 1.5px solid var(--ink); border-radius: 999px; width: 34px; height: 34px; display: grid; place-items: center;
+  }
+  .stat { border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; background: var(--surface); box-shadow: var(--shadow); }
+  .stat-val { font-family: var(--f-display); font-size: clamp(30px, 3.4vw, 40px); font-weight: 800; letter-spacing: -.03em; line-height: 1.05; }
+  .stat-k { font-size: 13px; color: var(--ink-muted); margin-top: 8px; line-height: 1.5; }
+
+  /* ---------- adaptive routing pipeline ---------- */
+  .pipe { display: grid; gap: 0; margin-top: 4px; }
+  .stage {
+    border: 1px solid var(--border); border-radius: 14px; background: var(--surface); padding: 16px 18px;
+    position: relative; opacity: .42; transition: opacity .35s, border-color .35s, background .35s, box-shadow .35s;
+  }
+  .stage.active  { opacity: 1; border-color: var(--ink); box-shadow: var(--shadow); }
+  .stage.done    { opacity: 1; }
+  .stage.skipped { opacity: .4; border-style: dashed; }
+  .stage-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .stage-n { width: 26px; height: 26px; border-radius: 50%; flex: none; border: 1.5px solid var(--border); display: grid; place-items: center; font-family: var(--f-mono); font-size: 11px; font-weight: 700; color: var(--ink-muted); }
+  .stage.active .stage-n, .stage.done .stage-n { border-color: var(--ink); color: var(--ink); }
+  .stage.done .stage-n { background: var(--ink); color: var(--page); }
+  .stage-title { font-family: var(--f-display); font-size: 15px; font-weight: 720; letter-spacing: -.01em; }
+  .stage-cost { margin-left: auto; font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .03em; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+  .stage-body { margin-top: 12px; font-size: 14px; color: var(--ink-2); }
+  .stage-body:empty { display: none; }
+  .link { height: 22px; position: relative; }
+  .link::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1.5px; background: var(--baseline); transform: translateX(-50%); }
+  .link.flow::after { content: ""; position: absolute; left: 50%; top: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--ink); transform: translateX(-50%); animation: travel .75s ease-in-out; }
+  .link.cut::before { background: repeating-linear-gradient(var(--div-neg) 0 3px, transparent 3px 6px); }
+  @keyframes travel { from { top: -4px; opacity: 0; } 20% { opacity: 1; } to { top: 20px; opacity: 0; } }
+
+  .gauge { margin-top: 16px; }
+  .gauge-track { position: relative; height: 32px; border-radius: 8px; overflow: visible; background: var(--zero-gray); }
+  .gauge-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 8px 0 0 8px; transition: width .8s cubic-bezier(.2,.7,.3,1); }
+  .gauge-thresh { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--ink); }
+  .gauge-thresh::after { content: "threshold " attr(data-t); position: absolute; left: 6px; top: -18px; font-family: var(--f-mono); font-size: 10px; letter-spacing: .04em; color: var(--ink-2); white-space: nowrap; }
+  .gauge-scale { display: flex; justify-content: space-between; gap: 10px; font-family: var(--f-mono); font-size: 10px; letter-spacing: .03em; color: var(--ink-muted); margin-top: 7px; }
+  .gauge-val { font-family: var(--f-display); font-size: 30px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+
+  .verdict-chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 13px; border-radius: 999px; font-size: 13.5px; font-weight: 650; border: 1.5px solid var(--border); text-transform: capitalize; }
+  .case-tabs { display: flex; gap: 10px; flex-wrap: wrap; }
+  .case-tab { height: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); padding: 13px 16px; text-align: left; min-width: 160px; flex: 1; display: block; white-space: normal; }
+  .case-tab[aria-selected="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+  .case-tab b { display: block; font-family: var(--f-display); font-size: 15px; text-transform: capitalize; margin-bottom: 3px; }
+  .case-tab span { font-size: 12.5px; color: var(--ink-muted); font-weight: 400; }
+  .counter { font-family: var(--f-mono); font-size: 11.5px; letter-spacing: .03em; font-variant-numeric: tabular-nums; }
+  .live-wrap { scroll-margin-top: 76px; }
+  .tips { margin-top: 14px; font-size: 13.5px; color: var(--ink-2); }
+  .tips summary { cursor: pointer; font-family: var(--f-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); }
+  .tips ul { margin: 10px 0 0; padding-left: 20px; }
+  .tips li { margin: 4px 0; }
+  .live-compare { margin: 0 0 16px; font-size: 14px; }
+  .listen { flex-basis: 100%; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+  .listen.hidden { display: none; }
+  .listen-label { font-family: var(--f-mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); }
+  .listen audio { flex: 1; min-width: 220px; height: 40px; }
+  #listen2 { margin-top: 14px; }
+  .play-btn { margin-top: 16px; }
+  .play-btn.playing { background: var(--ink); color: var(--page); border-color: var(--ink); }
+  @media (max-width: 560px) { .listen audio { min-width: 100%; } .play-btn { width: 100%; } }
+  .live-compare:empty { display: none; }
+
+  /* ---------- footer ---------- */
+  footer { border-top: 1.5px solid var(--ink); padding: 40px var(--gutter) calc(32px + env(safe-area-inset-bottom)); margin-top: 24px; }
+  .footer-inner { max-width: var(--maxw); margin: 0 auto; display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 32px; font-size: 13px; color: var(--ink-2); }
+  .footer-inner h4 { font-family: var(--f-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-muted); margin: 0 0 12px; font-weight: 600; }
+  .footer-inner a { display: block; text-decoration: none; padding: 3px 0; }
+  .footer-inner a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .footer-brand { font-family: var(--f-display); font-size: 22px; font-weight: 800; letter-spacing: -.02em; color: var(--ink); margin-bottom: 8px; }
+  .footer-base { max-width: var(--maxw); margin: 32px auto 0; padding-top: 18px; border-top: 1px solid var(--gridline); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-family: var(--f-mono); font-size: 11px; color: var(--ink-muted); letter-spacing: .03em; }
+
+  .hidden { display: none !important; }
+  .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--ink); border-radius: 50%; animation: sp .7s linear infinite; vertical-align: -1px; margin-right: 8px; flex: none; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+
+  /* =====================================================================================
+     Responsive. Breakpoints step the header down before anything can overflow, and every
+     control becomes a full-width, 44px+ touch target on phones.
+     ===================================================================================== */
+  @media (max-width: 960px) {
+    .topbar-inner { gap: 12px; }
+    nav.main a { padding: 8px 10px; }
+  }
+  @media (max-width: 860px) {
+    .menu-btn { display: grid; }
+    nav.main {
+      position: absolute; top: 100%; left: 0; right: 0; margin: 0;
+      flex-direction: column; gap: 0; padding: 8px var(--gutter) 16px;
+      background: var(--page); border-bottom: 1.5px solid var(--ink);
+      box-shadow: 0 18px 30px -18px rgba(0,0,0,.25);
+      transform-origin: top; transform: scaleY(.96); opacity: 0; pointer-events: none;
+      transition: opacity .16s, transform .16s;
+    }
+    nav.main.open { opacity: 1; transform: none; pointer-events: auto; }
+    nav.main a { font-size: 14px; padding: 15px 4px; border-radius: 0; border-bottom: 1px solid var(--gridline); }
+    nav.main a:last-child { border-bottom: none; }
+    nav.main a[aria-current="page"] { background: transparent; color: var(--ink); }
+    nav.main a[aria-current="page"]::before { content: "→ "; }
+    .topbar-tools { margin-left: auto; }
+    .grid-3, .grid-2 { grid-template-columns: 1fr; }
+    .footer-inner { grid-template-columns: 1fr 1fr; }
+    .footer-inner > :first-child { grid-column: 1 / -1; }
+  }
+  @media (max-width: 720px) {
+    .verdict { gap: 20px; }
+    .verdict-aside { border-left: none; border-top: 1px solid var(--border); padding: 16px 0 0; flex-basis: 100%; }
+    .hero-stat { padding: 0 18px; min-width: 0; flex: 1; }
+    .hero-stat span { font-size: 9.5px; }
+    .section { margin-bottom: 44px; }
+  }
+  @media (max-width: 560px) {
+    body { font-size: 15px; }
+    .brand-name { font-size: 14px; }
+    #connText { display: none; }
+    .conn { width: 36px; height: 36px; padding: 0; justify-content: center; }
+    .seg { display: flex; width: 100%; }
+    .seg button { flex: 1; padding: 0 6px; font-size: 13px; white-space: normal; line-height: 1.15; min-width: 0; }
+    .row > button, .row > .file-btn, .row > .file-btn > span, .hero-ctas a, .hero-ctas button { flex: 1 1 100%; width: 100%; }
+    .clipstrip { padding: 14px; }
+    .clipstrip > button { width: 100%; margin-left: 0 !important; }
+    .grow { min-width: 100%; }
+    .hero-stats { gap: 18px 0; }
+    .hero-stat { flex: 1 1 33%; padding: 0 12px; }
+    .bar-row { grid-template-columns: 64px 1fr 48px; gap: 10px; }
+    .tl-track { height: 150px; }
+    .stage-cost { margin-left: 0; width: 100%; order: 3; }
+    .gauge-scale span { max-width: 48%; }
+    .case-tab { min-width: 100%; }
+    .footer-inner { grid-template-columns: 1fr; }
+  }
+  .bn-short { display: none; }
+  .nav-theme { display: none; }
+  @media (max-width: 480px) {
+    .bn-long { display: none; }
+    .bn-short { display: inline; }
+    .topbar-tools { gap: 6px; }
+    .eyebrow { letter-spacing: .08em; }
+    /* the theme toggle moves into the menu so brand + status + menu fit a 320px phone */
+    #themeBtn { display: none; }
+    .nav-theme {
+      display: block; width: 100%; height: auto; min-height: 0; text-align: left;
+      border: none; border-radius: 0; background: transparent; padding: 15px 4px;
+      font-family: var(--f-mono); font-size: 14px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2);
+    }
+  }
+  .kv dd { overflow-wrap: anywhere; min-width: 0; }
+  @media (pointer: coarse) {
+    input[type="text"], input[type="url"], select { font-size: 16px; } /* stops iOS zooming on focus */
+    button { min-height: 44px; }
+    .seg button { min-height: 40px; }
+    /* round header controls stay round: size them square instead of letting min-height stretch them */
+    .icon-btn, .conn { width: 40px; height: 40px; min-height: 40px; }
+  }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="#/">
+      <span class="brand-mark">SER</span>
+      <span class="brand-name"><span class="bn-long">Speech Emotion Recognition</span><span class="bn-short">Speech Emotion</span></span>
+    </a>
+    <nav class="main" id="mainNav">
+      <a href="#/">Overview</a>
+      <a href="#/analyze">Analyze</a>
+      <a href="#/routing">Routing</a>
+      <a href="#/collect">Contribute</a>
+      <a href="#/method">Method</a>
+      <button class="nav-theme" id="themeBtnMenu" type="button">Switch light / dark</button>
+    </nav>
+    <div class="topbar-tools">
+      <button class="conn" id="connBtn" title="Click to re-check the server">
+        <span class="dot" id="connDot"></span><span id="connText">checking</span>
+      </button>
+      <button class="icon-btn" id="themeBtn" title="Toggle light / dark" aria-label="Toggle light or dark theme">◐</button>
+      <button class="icon-btn menu-btn" id="menuBtn" aria-label="Open menu" aria-expanded="false" aria-controls="mainNav"><span></span></button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============ OVERVIEW ============ -->
+  <section class="route" data-route="/">
+    <div class="hero">
+      <span class="eyebrow">Speech emotion recognition · open research demo</span>
+      <h1>Hear what a voice is feeling.</h1>
+      <p class="lede">
+        Record half a minute of speech. The model estimates which of six emotions it carries, then
+        shows you exactly which moments drove that answer, so you can judge the result instead of
+        taking it on trust.
+      </p>
+      <div class="hero-ctas">
+        <a href="#/analyze"><button class="primary lg">Analyze your voice &rarr;</button></a>
+        <a href="#/routing"><button class="lg">Watch the routing demo</button></a>
+      </div>
+      <div class="wave" id="heroWave" aria-hidden="true"></div>
+      <div class="hero-stats">
+        <div class="hero-stat"><b>6</b><span>emotions it can tell apart</span></div>
+        <div class="hero-stat"><b>33%</b><span>accuracy on real voices &middot; chance is 17%</span></div>
+        <div class="hero-stat"><b>0</b><span>recordings stored</span></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>How a run works</h2>
+      <p class="sub" style="margin-bottom:18px;">Three steps. Your audio is sent to the analysis server, processed in memory and discarded. Nothing is kept.</p>
+      <div class="steps panel">
+        <div class="step">
+          <div>
+            <h3>Give it audio</h3>
+            <p class="sub" style="margin:0;">Record from your microphone or upload an audio file. Up to
+            <span class="cap-text">thirty</span> seconds of natural speech; longer gives a steadier answer.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div>
+            <h3>The model listens</h3>
+            <p class="sub" style="margin:0;">Emotion2Vec+ turns the clip into a 768-dimension embedding;
+            a locked linear classifier turns that into six probabilities.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div>
+            <h3>You check its reasoning</h3>
+            <p class="sub" style="margin:0;">The timeline splits the clip into five-second windows and
+            shows which ones pushed toward the answer and which pushed against it. Click any window to hear it.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Read this before you trust a result</h2>
+      <div class="grid-2" style="margin-top:14px;">
+        <div class="panel">
+          <h3>It is right about one time in three</h3>
+          <p class="sub" style="margin:0;">Measured at roughly 33% on real voices across six emotions.
+          Better than the 17% you would get guessing, nowhere near good enough to decide anything that
+          matters about a person.</p>
+        </div>
+        <div class="panel">
+          <h3>Confidence is not correctness</h3>
+          <p class="sub" style="margin:0;">A 90% score means the classifier found the clip unambiguous,
+          not that it is right. Read the confidence badge and the timeline together.</p>
+        </div>
+        <div class="panel">
+          <h3>Long clips get approximate evidence</h3>
+          <p class="sub" style="margin:0;">Anything past one window is split up, and the per-window
+          numbers stop being the classifier's exact arithmetic. The app says so every time this happens.</p>
+        </div>
+        <div class="panel">
+          <h3>It is not a diagnosis</h3>
+          <p class="sub" style="margin:0;">No clinical, hiring, or safety use. This is a demonstration of
+          a speech-emotion pipeline and its explainability, nothing more.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ANALYZE ============ -->
+  <section class="route" data-route="/analyze">
+    <div class="page-head">
+      <span class="eyebrow">Analyze</span>
+      <h1>Run a recording</h1>
+      <p class="lede">Pick a source, then analyze. Results appear below with a per-window breakdown
+      you can play back.</p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Source</h2>
+        <span class="fine" id="srcHint">Longer recordings give a steadier result.</span>
+      </div>
+
+      <div class="seg" role="tablist" aria-label="Audio source">
+        <button role="tab" id="tabMic"  aria-selected="true"  data-src="mic">Microphone</button>
+        <button role="tab" id="tabFile" aria-selected="false" data-src="file">Audio file</button>
+        <button role="tab" id="tabYt"   aria-selected="false" data-src="yt">YouTube link</button>
+      </div>
+
+      <div id="panelMic" class="src-panel" style="margin-top:18px;">
+        <div class="row">
+          <button id="recordBtn">● Start recording</button>
+          <span class="fine" id="recordStatus">Idle</span>
+        </div>
+        <details class="tips">
+          <summary>Tips for a cleaner recording</summary>
+          <ul>
+            <li>Pick a quiet room and switch off fans, air-con and the TV.</li>
+            <li>Keep the mic about 15&ndash;20 cm from your mouth.</li>
+            <li>A wired headset or earphone mic beats a laptop mic. Bluetooth mics lower the audio quality.</li>
+            <li>Speak naturally for as long as the recording allows; short pauses are fine.</li>
+          </ul>
+        </details>
+      </div>
+
+      <div id="panelFile" class="src-panel hidden" style="margin-top:18px;">
+        <div class="row">
+          <label class="file-btn"><input type="file" id="fileInput" accept="audio/*" /><span>Choose an audio file</span></label>
+          <span class="fine" id="fileName">No file chosen</span>
+        </div>
+        <p class="fine" style="margin:10px 0 0;">WAV, MP3, FLAC, OGG, M4A: anything your browser can decode.</p>
+      </div>
+
+      <div id="panelYt" class="src-panel hidden" style="margin-top:18px;">
+        <label class="field" for="youtubeUrl">YouTube URL</label>
+        <div class="row">
+          <input type="url" id="youtubeUrl" class="grow" placeholder="https://www.youtube.com/watch?v=…" />
+          <button id="youtubeBtn" class="primary">Fetch &amp; analyze</button>
+        </div>
+        <p class="fine" id="youtubeStatus" style="margin:9px 0 0;">
+          The server downloads the audio track only. You are responsible for respecting the
+          source video's copyright and YouTube's terms.
+        </p>
+      </div>
+
+      <div class="clipstrip hidden" id="clipStrip">
+        <span class="meta" id="clipInfo"></span>
+        <button class="primary" id="analyzeBtn" style="margin-left:auto;">Analyze recording</button>
+        <div class="listen">
+          <span class="listen-label">Hear what you recorded</span>
+          <audio id="clipAudio" controls preload="auto"></audio>
+        </div>
+      </div>
+      <div id="qualityNote" class="hidden" style="margin-top:12px;"></div>
+
+      <details class="server">
+        <summary>Server settings</summary>
+        <div class="row">
+          <input type="text" id="apiBase" class="grow" value="http://localhost:8001" />
+          <button id="checkConn">Check connection</button>
+        </div>
+      </details>
+    </div>
+
+    <div id="errorSlot" class="hidden" style="margin-top:16px;"></div>
+
+    <!-- live adaptive routing: starts the moment you click Analyze, before the headline result is ready -->
+    <div class="section live-wrap hidden" id="liveRouting" style="margin-top:36px;">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Which model decided — live</h2>
+          <span class="fine">adaptive routing</span>
+        </div>
+        <p class="sub" style="margin-top:-6px;">A cheap model always listens first. A calibrated router
+        then decides whether this recording is worth paying for the expensive one.</p>
+        <div class="note info live-compare" id="liveCompare"></div>
+        <div class="pipe" id="liveRoutingPipe"></div>
+        <div id="liveNotes" style="margin-top:14px;"></div>
+      </div>
+    </div>
+
+    <!-- results -->
+    <div id="results" class="hidden">
+      <div class="section" style="margin-top:36px;">
+        <div class="verdict">
+          <div class="verdict-main">
+            <span class="eyebrow">Emotion detected</span>
+            <div class="emotion-word">
+              <span class="emotion-swatch" id="rSwatch"></span>
+              <span id="rEmotion">—</span>
+            </div>
+            <div class="conf-line">
+              <span class="conf-num" id="rConf"></span>
+              <span class="fine">confidence</span>
+              <span class="badge" id="rBadge"></span>
+            </div>
+            <button id="playAllBtn" class="play-btn" type="button">&#9654; Hear your recording</button>
+            <p class="summary-line" id="rSummary"></p>
+          </div>
+          <dl class="verdict-aside" id="rMeta"></dl>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>All six emotions</h2>
+            <button id="viewToggle" style="margin-left:auto; padding:5px 11px; font-size:12.5px;">Table view</button>
+          </div>
+          <div id="barsView"></div>
+          <div id="tableView" class="hidden"></div>
+        </div>
+      </div>
+
+      <div class="section" id="timelineSection">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Where the answer came from</h2>
+          </div>
+          <p class="sub" id="tlSub" style="margin-top:-6px;"></p>
+          <div class="tl-wrap">
+            <div class="tl-track" id="tlTrack"><div class="tl-zero"></div></div>
+            <div class="tl-axis" id="tlAxis"></div>
+          </div>
+          <div class="legend">
+            <span><i style="background:var(--div-pos)"></i>Supports the prediction</span>
+            <span><i style="background:var(--div-neg)"></i>Argues against it</span>
+            <span class="fine">Click a window to hear it.</span>
+          </div>
+          <div class="evidence" id="tlEvidence"></div>
+        </div>
+      </div>
+
+      <div class="section" id="warnSlot"></div>
+
+      <div class="section">
+        <div class="note">
+          <b>Accuracy:</b> this model is measured at about <b>33% accuracy</b> on real voices across six
+          emotions. Treat every prediction here as a rough signal, not a diagnosis — read it together
+          with the confidence score and the timeline, never on its own.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ADAPTIVE ROUTING ============ -->
+  <section class="route" data-route="/routing">
+    <div class="page-head">
+      <span class="eyebrow">Adaptive routing</span>
+      <h1>Spend the expensive model only where it pays</h1>
+      <p class="lede">A cheap model listens to every recording. A calibrated router then decides
+      whether that answer is trustworthy enough to keep — or whether this particular clip is worth
+      paying ~24× more compute to run the heavy model. Watch it decide.</p>
+    </div>
+
+    <div id="routingUnavailable" class="note err hidden" style="margin-bottom:24px;"></div>
+
+    <div id="routingApp" class="hidden">
+      <div class="section">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Pick a recording</h2>
+            <span class="fine counter" id="invCounter"></span>
+          </div>
+          <div class="case-tabs" id="caseTabs"></div>
+          <div class="row" style="margin-top:16px;">
+            <button class="primary" id="runRouting">Run it</button>
+            <button id="playClip">Hear the clip</button>
+            <span class="fine" id="routingStatus"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="pipe">
+          <div class="stage" id="st-audio">
+            <div class="stage-head">
+              <span class="stage-n">1</span><span class="stage-title">Audio in</span>
+              <span class="stage-cost" id="cost-audio"></span>
+            </div>
+            <div class="stage-body" id="body-audio"></div>
+          </div>
+
+          <div class="link" id="lk-1"></div>
+
+          <div class="stage" id="st-light">
+            <div class="stage-head">
+              <span class="stage-n">2</span><span class="stage-title">Light branch — MFCC + small MLP</span>
+              <span class="stage-cost" id="cost-light"></span>
+            </div>
+            <div class="stage-body" id="body-light"></div>
+          </div>
+
+          <div class="link" id="lk-2"></div>
+
+          <div class="stage" id="st-router">
+            <div class="stage-head">
+              <span class="stage-n">3</span><span class="stage-title">Router — is this worth escalating?</span>
+              <span class="stage-cost" id="cost-router"></span>
+            </div>
+            <div class="stage-body" id="body-router"></div>
+          </div>
+
+          <div class="link" id="lk-3"></div>
+
+          <div class="stage" id="st-heavy">
+            <div class="stage-head">
+              <span class="stage-n">4</span><span class="stage-title">Heavy branch — Emotion2Vec+</span>
+              <span class="stage-cost" id="cost-heavy"></span>
+            </div>
+            <div class="stage-body" id="body-heavy"></div>
+          </div>
+
+          <div class="link" id="lk-4"></div>
+
+          <div class="stage" id="st-final">
+            <div class="stage-head">
+              <span class="stage-n">5</span><span class="stage-title">Final answer</span>
+              <span class="stage-cost" id="cost-final"></span>
+            </div>
+            <div class="stage-body" id="body-final"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>What this buys</h2>
+        <div class="grid-3" id="routingStats" style="margin-top:14px;"></div>
+        <p class="fine" id="routingCaveats" style="margin-top:14px;"></p>
+      </div>
+
+      <div class="section">
+        <div class="note">
+          <b>These are acted-corpus numbers.</b> <span id="corpusCaveat"></span>
+        </div>
+        <div class="note" style="margin-top:10px;">
+          <b>The router only hears the first 3 seconds.</b> That is a placeholder, not a validated
+          choice — the system was only ever evaluated on clips where the first 3 seconds <em>were</em>
+          the whole clip. Whether routing a 30–60s recording on its opening behaves the same way is
+          unchecked.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CONTRIBUTE ============ -->
+  <section class="route" data-route="/collect">
+    <div class="page-head">
+      <span class="eyebrow">Contribute</span>
+      <h1>Record a labelled clip</h1>
+      <p class="lede">Real voices are what this model is short of. Record a clip, tell us what you were
+      going for, and save it — the file downloads to your machine, correctly named and ready to send back.</p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>1 · Record</h2></div>
+      <div class="row">
+        <button id="recordBtn2">● Start recording</button>
+        <span class="fine" id="recordStatus2">Idle</span>
+      </div>
+      <p class="fine" id="clipInfo2" style="margin:12px 0 0;">No clip yet.</p>
+      <div class="listen hidden" id="listen2">
+        <span class="listen-label">Hear it before you save it</span>
+        <audio id="clipAudio2" controls preload="auto"></audio>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>2 · Label it</h2></div>
+      <div class="grid-3">
+        <div>
+          <label class="field" for="speakerId">Your name or ID</label>
+          <input type="text" id="speakerId" placeholder="speaker07" style="width:100%" />
+        </div>
+        <div>
+          <label class="field" for="emotionSelect">Emotion you performed</label>
+          <select id="emotionSelect" style="width:100%">
+            <option value="angry">Angry</option>
+            <option value="disgust">Disgust</option>
+            <option value="fear">Fear</option>
+            <option value="happy">Happy</option>
+            <option value="neutral">Neutral</option>
+            <option value="sad">Sad</option>
+          </select>
+        </div>
+        <div>
+          <label class="field" for="takeNum">Take number</label>
+          <input type="text" id="takeNum" value="1" style="width:100%" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:18px;">
+        <button class="primary" id="saveClipBtn" disabled>Save clip</button>
+        <span class="fine" id="saveClipStatus"></span>
+      </div>
+    </div>
+
+    <div class="note info" style="margin-top:16px;">
+      <b>Why download rather than upload?</b> Nothing is sent anywhere — the clip is written straight to
+      your downloads folder so you stay in control of it. Send it on however you like.
+    </div>
+  </section>
+
+  <!-- ============ METHOD ============ -->
+  <section class="route" data-route="/method">
+    <div class="page-head">
+      <span class="eyebrow">Method</span>
+      <h1>How the answer is produced</h1>
+      <p class="lede">The whole pipeline, the numbers behind it, and an honest account of what it
+      cannot do.</p>
+    </div>
+
+    <div class="section">
+      <h2>The pipeline</h2>
+      <div class="steps panel" style="margin-top:14px;">
+        <div class="step"><div>
+          <h3>Conform the audio</h3>
+          <p class="sub" style="margin:0;">Downmixed to mono and resampled to 16 kHz. No denoising, no
+          voice-activity trimming, no normalisation — the model sees the recording as it was made.</p>
+        </div></div>
+        <div class="step"><div>
+          <h3>Embed with Emotion2Vec+</h3>
+          <p class="sub" style="margin:0;">The whole clip becomes one 768-dimension utterance embedding.
+          The encoder is frozen; nothing about it was fine-tuned here.</p>
+        </div></div>
+        <div class="step"><div>
+          <h3>Classify</h3>
+          <p class="sub" style="margin:0;">A standard-scaled logistic regression maps that embedding to six
+          probabilities. Deliberately linear — it is what makes the per-window attribution below meaningful.</p>
+        </div></div>
+        <div class="step"><div>
+          <h3>Attribute along the timeline</h3>
+          <p class="sub" style="margin:0;">The clip is cut into five-second windows, each embedded and
+          scored on its own, and each window's push toward the winning class is reported.</p>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Loaded model</h2>
+      <div class="panel" style="margin-top:14px;">
+        <dl id="modelCard" class="sub" style="margin:0;">
+          <div class="kv"><dt>Status</dt><dd>not checked yet</dd></div>
+        </dl>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Known limits</h2>
+      <div class="panel" style="margin-top:14px;">
+        <h3>Per-window numbers are approximate on long clips</h3>
+        <p class="sub">Attribution is exact only when a clip fits inside a single window. Past that,
+          re-embedding each window separately does not perfectly reconstruct the whole-clip embedding —
+          measured reconstruction error 2.18 on a real 44-second recording. Whenever that happens the
+          result carries a warning saying so, and the right reading of the bars is
+          <em>supporting evidence</em>, never exact arithmetic.</p>
+        <h3 style="margin-top:18px;">Trained on acted speech, used on real speech</h3>
+        <p class="sub">Much of the training material is performed emotion. Real conversational speech is
+          flatter and more ambiguous, which is most of the gap between benchmark numbers and the 33%
+          measured here.</p>
+        <h3 style="margin-top:18px;">Six boxes for something that is not six boxes</h3>
+        <p class="sub" style="margin:0;">Real speech carries blends, sarcasm, and no emotion at all. Forcing
+          every clip into one of six labels throws that away by construction.</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="footer-inner">
+    <div>
+      <div class="footer-brand">Speech Emotion Recognition</div>
+      <p style="margin:0; max-width:44ch;">A final-year research project that estimates emotion in speech
+      and shows its working. Not for clinical, hiring, or safety decisions.</p>
+    </div>
+    <div>
+      <h4>Use it</h4>
+      <a href="#/analyze">Analyze a recording</a>
+      <a href="#/routing">Adaptive routing demo</a>
+      <a href="#/collect">Contribute a clip</a>
+    </div>
+    <div>
+      <h4>Understand it</h4>
+      <a href="#/method">Method and limits</a>
+      <a href="#/">Overview</a>
+    </div>
+  </div>
+  <div class="footer-base">
+    <span>Audio is processed in memory and discarded. Nothing is stored.</span>
+    <span id="footVersion">&mdash;</span>
+  </div>
+</footer>
+
+<div class="tip" id="tip"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  const EMOTIONS = ["angry", "disgust", "fear", "happy", "neutral", "sad"];
+  const COLOR_VAR = {
+    angry: "--c-angry", disgust: "--c-disgust", fear: "--c-fear",
+    happy: "--c-happy", neutral: "--c-neutral", sad: "--c-sad",
+  };
+  const ERROR_MESSAGES = {
+    empty_upload: "No audio was received. Try recording or choosing a file again.",
+    empty_audio: "That file decoded to silence with no samples in it. Try a different recording.",
+    unreadable_audio: "The server could not read that audio format. A plain WAV file always works.",
+    too_short: "That clip is too short. Record at least a few seconds.",
+    too_long: "That clip is longer than this server allows. Record a shorter one.",
+    silent_audio: "That recording is silence. Check your microphone and try again.",
+    file_too_large: "That file is bigger than this server allows.",
+    empty_url: "Paste a YouTube link first.",
+    invalid_youtube_url: "That is not a youtube.com or youtu.be link.",
+    youtube_unavailable: "Could not download that video — it may be private, age-restricted, region-locked, or removed.",
+    youtube_download_failed: "Something went wrong extracting audio from that link.",
+    ffmpeg_missing: "The server needs ffmpeg installed to read YouTube audio. See the server README.",
+  };
+  const $ = (id) => document.getElementById(id);
+
+  // ---------------- router ----------------
+  const ROUTES = {
+    "/":        "Overview · Speech Emotion Recognition",
+    "/analyze": "Analyze · Speech Emotion Recognition",
+    "/routing": "Adaptive routing · Speech Emotion Recognition",
+    "/collect": "Contribute · Speech Emotion Recognition",
+    "/method":  "Method · Speech Emotion Recognition",
+  };
+  function currentRoute() {
+    const h = decodeURIComponent(location.hash.replace(/^#/, "")) || "/";
+    return Object.prototype.hasOwnProperty.call(ROUTES, h) ? h : "/";
+  }
+  function renderRoute() {
+    const route = currentRoute();
+    document.querySelectorAll(".route").forEach((el) => {
+      el.classList.toggle("active", el.dataset.route === route);
+    });
+    document.querySelectorAll("nav.main a").forEach((a) => {
+      const target = a.getAttribute("href").replace(/^#/, "") || "/";
+      if (target === route) a.setAttribute("aria-current", "page");
+      else a.removeAttribute("aria-current");
+    });
+    document.title = ROUTES[route];
+    $("mainNav").classList.remove("open");
+    $("menuBtn").setAttribute("aria-expanded", "false");
+    window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
+    if (route === "/method") refreshModelCard();
+    if (route === "/routing") loadRoutingInfo();
+  }
+  window.addEventListener("hashchange", renderRoute);
+
+  // ---------------- theme ----------------
+  try {
+    const saved = localStorage.getItem("ser-theme");
+    if (saved === "dark" || saved === "light") document.documentElement.setAttribute("data-theme", saved);
+  } catch (e) { /* private mode — fall back to OS preference */ }
+  $("themeBtnMenu").addEventListener("click", () => $("themeBtn").click());
+  $("themeBtn").addEventListener("click", () => {
+    const explicit = document.documentElement.getAttribute("data-theme");
+    const osDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const isDark = explicit ? explicit === "dark" : osDark;
+    const next = isDark ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("ser-theme", next); } catch (e) {}
+    if (lastResult) renderResults(lastResult);  // repaint charts against the new surface
+  });
+
+  // ---------------- audio state ----------------
+  let audioCtx = null, decodedBuffer = null, monoSamples = null, sampleRate = null;
+  let mediaRecorder = null, recordedChunks = [];
+  let lastResult = null, maxEnergy = 1e-9;
+
+  const getCtx = () => (audioCtx || (audioCtx = new (window.AudioContext || window.webkitAudioContext)()));
+  const apiBase = () => $("apiBase").value.trim().replace(/\/+$/, "");
+
+  function downmixToMono(buffer) {
+    const ch = buffer.numberOfChannels, len = buffer.length;
+    const out = new Float32Array(len);
+    for (let c = 0; c < ch; c++) {
+      const data = buffer.getChannelData(c);
+      for (let i = 0; i < len; i++) out[i] += data[i] / ch;
+    }
+    return out;
+  }
+
+  function encodeWavPCM16(samples, sr) {
+    const dataSize = samples.length * 2;
+    const buf = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buf);
+    const writeStr = (off, s) => { for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i)); };
+    writeStr(0, "RIFF"); view.setUint32(4, 36 + dataSize, true); writeStr(8, "WAVE");
+    writeStr(12, "fmt "); view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+    view.setUint32(24, sr, true); view.setUint32(28, sr * 2, true);
+    view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+    writeStr(36, "data"); view.setUint32(40, dataSize, true);
+    let off = 44;
+    for (let i = 0; i < samples.length; i++, off += 2) {
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      view.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    }
+    return new Blob([buf], { type: "audio/wav" });
+  }
+
+  async function ingestBlob(blob) {
+    const arrBuf = await blob.arrayBuffer();
+    const buffer = await getCtx().decodeAudioData(arrBuf.slice(0));
+    decodedBuffer = buffer;
+    monoSamples = downmixToMono(buffer);
+    sampleRate = buffer.sampleRate;
+    setRecordingAudio(monoSamples, sampleRate);  // the whole recording, before any trimming
+    // Trim to this server's cap up front rather than letting the upload fail afterwards. The full
+    // recording stays in decodedBuffer for playback; only the first `cap` seconds are analysed.
+    const cap = serverLimits.max_duration_sec;
+    let trimmedNote = "";
+    if (cap && buffer.duration > cap) {
+      monoSamples = monoSamples.slice(0, Math.floor(cap * sampleRate));
+      trimmedNote = ` · <b>only the first ${cap}s will be analysed</b> (this server's limit)`;
+    }
+    const txt = `<strong>${buffer.duration.toFixed(1)}s</strong> clip · ${(sampleRate / 1000).toFixed(1)} kHz · mono${trimmedNote}`;
+    $("clipInfo").innerHTML = txt;
+    $("clipInfo2").innerHTML = txt;
+    $("clipStrip").classList.remove("hidden");
+    $("analyzeBtn").disabled = false;
+    $("saveClipBtn").disabled = false;
+    showQuality(assessQuality(monoSamples, sampleRate));
+  }
+
+  // A read-only check of the recording. It never changes the audio that gets analysed; it only warns
+  // about two things that are unambiguous to measure: a recording that is far too quiet, and one that
+  // is clipped (distorted). It deliberately does NOT try to judge background noise: telling noise from
+  // quiet speech needs pauses in the recording, and guessing wrong would mislabel good recordings.
+  function assessQuality(x, sr) {
+    const n = Math.floor(0.025 * sr);
+    if (!n || x.length < n * 20) return null;
+    let clipped = 0, loudFrames = [];
+    for (let i = 0; i + n <= x.length; i += n) {
+      let s = 0;
+      for (let j = i; j < i + n; j++) { const v = x[j]; s += v * v; if (v > 0.99 || v < -0.99) clipped++; }
+      loudFrames.push(Math.sqrt(s / n));
+    }
+    loudFrames.sort((a, b) => a - b);
+    return {
+      loud: loudFrames[Math.min(loudFrames.length - 1, Math.floor(0.9 * loudFrames.length))],
+      clippedPct: (100 * clipped) / (loudFrames.length * n),
+    };
+  }
+
+  function showQuality(a) {
+    const el = $("qualityNote");
+    const msgs = [];
+    if (a && a.loud < 0.01) msgs.push("<b>This recording is very quiet.</b> Move closer to the mic or raise its input volume.");
+    if (a && a.clippedPct > 1) msgs.push("<b>This recording is distorted (too loud).</b> Move back a little or lower the mic volume.");
+    if (!msgs.length) { el.className = "hidden"; el.innerHTML = ""; return; }
+    el.className = "";
+    el.innerHTML = msgs.map((m) => `<div class="note" style="margin-top:8px;">${m}</div>`).join("");
+  }
+
+  // ---------------- source tabs ----------------
+  document.querySelectorAll('[role="tab"]').forEach((tab) => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll('[role="tab"]').forEach((t) => t.setAttribute("aria-selected", String(t === tab)));
+      const src = tab.dataset.src;
+      $("panelMic").classList.toggle("hidden", src !== "mic");
+      $("panelFile").classList.toggle("hidden", src !== "file");
+      $("panelYt").classList.toggle("hidden", src !== "yt");
+      $("srcHint").textContent = src === "yt"
+        ? "The server pulls the audio track; the clip then behaves like any other recording."
+        : micHint();
+    });
+  });
+
+  // ---------------- recording (shared by both pages) ----------------
+  function wireRecorder(btnId, statusId) {
+    const btn = $(btnId), status = $(statusId);
+    let recording = false, autoStop = null;
+    const stop = () => {
+      if (!recording) return;
+      clearTimeout(autoStop);
+      mediaRecorder.stop();
+      recording = false;
+      btn.textContent = "● Start recording";
+      btn.classList.remove("rec-on");
+    };
+    btn.addEventListener("click", async () => {
+      if (!recording) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          recordedChunks = [];
+          const mime = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg"]
+            .find((m) => window.MediaRecorder && MediaRecorder.isTypeSupported(m));
+          mediaRecorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+          mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+          mediaRecorder.onstop = async () => {
+            stream.getTracks().forEach((t) => t.stop());
+            status.textContent = "Processing…";
+            try {
+              await ingestBlob(new Blob(recordedChunks, { type: mediaRecorder.mimeType || "audio/webm" }));
+              status.textContent = "Ready";
+            } catch (err) { showError("Could not decode that recording: " + err.message); status.textContent = "Idle"; }
+          };
+          mediaRecorder.start();
+          recording = true;
+          btn.textContent = "■ Stop recording";
+          btn.classList.add("rec-on");
+          const cap = serverLimits.max_duration_sec;
+          status.textContent = cap ? `Recording… stops automatically at ${cap}s` : "Recording…";
+          if (cap) autoStop = setTimeout(stop, cap * 1000);
+        } catch (err) {
+          showError("Could not access the microphone: " + err.message);
+        }
+      } else {
+        stop();
+      }
+    });
+  }
+  wireRecorder("recordBtn", "recordStatus");
+  wireRecorder("recordBtn2", "recordStatus2");
+
+  $("fileInput").addEventListener("change", (e) => {
+    const f = e.target.files[0];
+    $("fileName").textContent = f ? f.name : "No file chosen";
+  });
+  $("fileInput").addEventListener("change", async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    try { await ingestBlob(f); } catch (err) { showError("Could not read that file as audio: " + err.message); }
+  });
+
+  // ---------------- connection ----------------
+  let serverFeatures = { youtube: true, adaptive: true };
+  let serverLimits = { max_duration_sec: null, max_upload_mb: null };
+  const micHint = () => serverLimits.max_duration_sec
+    ? `Up to ${serverLimits.max_duration_sec} seconds; longer gives a steadier result.`
+    : "Longer recordings give a steadier result.";
+
+  // The WAV the server receives. Normally it is the recording as decoded; only if it would not fit
+  // the server's upload limit (e.g. a 96 kHz sound card) is it resampled to 16 kHz -- the rate the
+  // model runs at anyway -- so it can be sent at all.
+  async function uploadWav() {
+    let blob = encodeWavPCM16(monoSamples, sampleRate);
+    const limit = serverLimits.max_upload_mb ? serverLimits.max_upload_mb * 1024 * 1024 * 0.95 : 0;
+    if (limit && blob.size > limit && sampleRate > 16000) {
+      const n = Math.ceil((monoSamples.length * 16000) / sampleRate);
+      const off = new OfflineAudioContext(1, n, 16000);
+      const buf = off.createBuffer(1, monoSamples.length, sampleRate);
+      buf.copyToChannel(monoSamples, 0);
+      const src = off.createBufferSource();
+      src.buffer = buf; src.connect(off.destination); src.start();
+      blob = encodeWavPCM16((await off.startRendering()).getChannelData(0), 16000);
+    }
+    return blob;
+  }
+
+  function applyFeatures(f) {
+    serverFeatures = Object.assign({ youtube: true, adaptive: true }, f || {});
+    const yt = $("tabYt");
+    yt.classList.toggle("hidden", !serverFeatures.youtube);
+    if (!serverFeatures.youtube && yt.getAttribute("aria-selected") === "true") $("tabMic").click();
+  }
+
+  // Which server to talk to: a URL baked in at deploy time wins outright; otherwise try the page's
+  // own origin (the API can serve this page itself), then the usual local ports.
+  async function autodetectApi() {
+    const meta = document.querySelector('meta[name="ser-api"]');
+    if (meta && meta.content.trim()) { $("apiBase").value = meta.content.trim().replace(/\/+$/, ""); return; }
+    // On a real website the server is always this page's own origin. Never probe-and-fall-back
+    // there: a sleeping server takes ~15 s to wake, and a short probe used to time out and send
+    // every visitor's browser looking for localhost:8001 instead.
+    if (location.protocol.startsWith("http") && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) {
+      $("apiBase").value = location.origin;
+      return;
+    }
+    const tries = [];
+    try { const saved = localStorage.getItem("ser-api"); if (saved) tries.push(saved); } catch (e) {}
+    if (location.protocol.startsWith("http")) tries.push(location.origin);
+    tries.push("http://localhost:8001", "http://localhost:8000");
+    for (const base of [...new Set(tries.map((t) => t.replace(/\/+$/, "")))]) {
+      try {
+        const r = await fetch(base + "/health", { signal: AbortSignal.timeout(2500) });
+        if (r.ok && "model_loaded" in (await r.json())) { $("apiBase").value = base; return; }
+      } catch (e) { /* try the next one */ }
+    }
+  }
+
+  async function checkConnection(quiet) {
+    const dot = $("connDot"), text = $("connText");
+    dot.className = "dot wait";
+    text.textContent = "connecting";
+    try {
+      const resp = await fetch(apiBase() + "/health");
+      const json = await resp.json();
+      applyFeatures(json.features);
+      if (json.limits) {
+        serverLimits = json.limits;
+        if ($("tabYt").getAttribute("aria-selected") !== "true") $("srcHint").textContent = micHint();
+        const cap = serverLimits.max_duration_sec;
+        document.querySelectorAll(".cap-text").forEach((el) => (el.textContent = cap ? String(cap) : "sixty"));
+      }
+      if (json.model_loaded) {
+        dot.className = "dot ok"; text.textContent = "model ready";
+        try { localStorage.setItem("ser-api", apiBase()); } catch (e) {}
+        return true;
+      }
+      dot.className = "dot wait"; text.textContent = "loading model";
+    } catch (e) {
+      dot.className = "dot bad";
+      text.textContent = "offline";
+      if (!quiet) showError("Could not reach the server at " + apiBase() + ". Check it is running, then try again.");
+    }
+    return false;
+  }
+
+  // A free host puts an idle server to sleep; the first visitor wakes it and has to wait. Keep
+  // trying quietly for a few minutes and say so, instead of showing a dead page.
+  async function connectWithWake() {
+    if (await checkConnection(true)) return true;
+    const dot = $("connDot"), text = $("connText");
+    for (let i = 0; i < 40; i++) {
+      dot.className = "dot wait"; text.textContent = "waking server";
+      await sleep(6000);
+      if (await checkConnection(true)) {
+        if (currentRoute() === "/routing") loadRoutingInfo();
+        if (currentRoute() === "/method") refreshModelCard();
+        return true;
+      }
+    }
+    dot.className = "dot bad"; text.textContent = "offline";
+    return false;
+  }
+
+  $("connBtn").addEventListener("click", () => checkConnection(false));
+  $("checkConn").addEventListener("click", () => checkConnection(false));
+
+  async function refreshModelCard() {
+    const dl = $("modelCard");
+    try {
+      const resp = await fetch(apiBase() + "/model/version");
+      const m = await resp.json();
+      dl.innerHTML = `
+        <div class="kv"><dt>Model version</dt><dd>${esc(m.model_version)}</dd></div>
+        <div class="kv"><dt>Encoder</dt><dd>${esc(m.encoder_model_id)}</dd></div>
+        <div class="kv"><dt>Classifier config</dt><dd>${esc(m.classifier_config)}</dd></div>
+        <div class="kv"><dt>Classes</dt><dd>${m.classes.map(esc).join(", ")}</dd></div>
+        <div class="kv"><dt>Sample rate</dt><dd>${m.sample_rate} Hz</dd></div>
+        <div class="kv"><dt>Window</dt><dd>${m.window_sec}s</dd></div>`;
+      $("footVersion").textContent = m.model_version;
+    } catch (e) {
+      dl.innerHTML = `<div class="kv"><dt>Status</dt><dd>server unreachable</dd></div>`;
+    }
+  }
+
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  // ---------------- requests ----------------
+  $("analyzeBtn").addEventListener("click", async () => {
+    if (!monoSamples || !sampleRate) return;
+    const btn = $("analyzeBtn");
+    const form = new FormData();
+    form.append("file", await uploadWav(), "clip.wav");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span>Analyzing…';
+    clearError();
+    headlineEmotion = null;
+    // Adaptive routing goes first: it is the fast one, so the pipeline is moving on screen while the
+    // slower headline analysis (which also builds the timeline) is still computing.
+    await startLiveRouting();
+    try {
+      const resp = await fetch(apiBase() + "/predict", { method: "POST", body: form });
+      const json = await resp.json();
+      if (!resp.ok) showError(ERROR_MESSAGES[json.error_code] || json.message || "Something went wrong on the server.");
+      else renderResults(json);
+    } catch (e) {
+      showError("Could not reach the server at " + apiBase() + ".");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Analyze recording";
+    }
+  });
+
+  const base64ToBlob = (b64, mime) => {
+    const bin = atob(b64), bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  };
+
+  $("youtubeBtn").addEventListener("click", async () => {
+    const url = $("youtubeUrl").value.trim();
+    const status = $("youtubeStatus"), btn = $("youtubeBtn");
+    if (!url) { status.textContent = "Paste a YouTube link first."; return; }
+    clearError();
+    btn.disabled = true;
+    status.innerHTML = '<span class="spin"></span>Downloading the audio track — long videos take a while.';
+    try {
+      const resp = await fetch(apiBase() + "/predict/youtube", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const json = await resp.json();
+      if (!resp.ok) {
+        showError(ERROR_MESSAGES[json.error_code] || json.message || "Something went wrong on the server.");
+        status.textContent = "";
+      } else {
+        // Decode the returned audio locally so window playback works exactly as it does for an upload.
+        if (json.audio_base64) { try { await ingestBlob(base64ToBlob(json.audio_base64, "audio/wav")); } catch (e) {} }
+        status.textContent = json.source && json.source.title ? "Analyzed: " + json.source.title : "Done.";
+        renderResults(json);
+        startLiveRouting();  // the downloaded audio is now decoded locally, so it can be routed like any recording
+      }
+    } catch (e) {
+      showError("Could not reach the server at " + apiBase() + ".");
+      status.textContent = "";
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // ---------------- errors ----------------
+  function showError(msg) {
+    const slot = $("errorSlot");
+    slot.className = "";
+    slot.innerHTML = `<div class="note err"><b>Didn't work.</b> ${esc(msg)}</div>`;
+    slot.scrollIntoView({ block: "nearest" });
+  }
+  function clearError() { $("errorSlot").className = "hidden"; $("errorSlot").innerHTML = ""; }
+
+  // ---------------- results ----------------
+  function confidenceStatus(c) {
+    if (c >= 0.6) return { label: "Fairly confident", color: "var(--status-good)" };
+    if (c >= 0.4) return { label: "Somewhat confident", color: "var(--status-warning)" };
+    return { label: "Not very confident", color: "var(--status-critical)" };
+  }
+
+  function renderResults(json) {
+    lastResult = json;
+    headlineEmotion = json.emotion;
+    updateLiveCompare();
+    clearError();
+    $("results").classList.remove("hidden");
+
+    const emo = json.emotion;
+    $("rEmotion").textContent = emo;
+    $("rSwatch").style.background = `var(${COLOR_VAR[emo]})`;
+    $("rConf").textContent = (json.confidence * 100).toFixed(1) + "%";
+
+    const st = confidenceStatus(json.confidence);
+    $("rBadge").innerHTML = `<span class="dot" style="background:${st.color}"></span>${st.label}`;
+
+    // ranked runner-up gives the summary its "or" reading
+    const ranked = EMOTIONS.map((e) => [e, json.probabilities[e] ?? 0]).sort((a, b) => b[1] - a[1]);
+    const second = ranked[1];
+    const tl = json.timeline;
+    const top = tl && tl.windows && tl.windows[tl.top_window_idx];
+    let summary = `Overall this recording reads as <b>${esc(emo)}</b>, at ${(json.confidence * 100).toFixed(1)}% confidence.`;
+    if (second && second[1] >= 0.15) {
+      summary += ` The next closest reading is <b>${esc(second[0])}</b> at ${(second[1] * 100).toFixed(1)}%, so treat this as a lean rather than a clear call.`;
+    }
+    if (top) {
+      summary += ` The strongest evidence sits between ${top.start_s.toFixed(1)}s and ${top.end_s.toFixed(1)}s.`;
+    }
+    $("rSummary").innerHTML = summary;
+
+    const lat = json.latency_ms || {};
+    $("rMeta").innerHTML = `
+      <div class="kv"><dt>Length</dt><dd>${(json.duration_sec ?? 0).toFixed(1)}s</dd></div>
+      <div class="kv"><dt>Windows</dt><dd>${tl ? tl.n_windows : "—"}</dd></div>
+      <div class="kv"><dt>Attribution</dt><dd>${tl && tl.attribution_exact ? "exact" : "approximate"}</dd></div>
+      ${json.source && json.source.title ? `<div class="kv"><dt>Source</dt><dd>YouTube</dd></div>` : ""}
+      <div class="kv"><dt>Compute</dt><dd>${lat.total_ms ? (lat.total_ms / 1000).toFixed(1) + "s" : "—"}</dd></div>
+      <div class="kv"><dt>Model</dt><dd style="font-size:11px;word-break:break-all">${esc(json.model_version || "")}</dd></div>`;
+
+    renderProbabilities(json, ranked);
+    renderWarnings(json);
+    if (tl && tl.windows && tl.windows.length) renderTimeline(tl);
+    else $("timelineSection").classList.add("hidden");
+  }
+
+  function renderProbabilities(json, ranked) {
+    const bars = $("barsView"), table = $("tableView");
+    bars.innerHTML = "";
+    EMOTIONS.forEach((em) => {
+      const p = json.probabilities[em] ?? 0;
+      const pct = (p * 100);
+      const row = document.createElement("div");
+      row.className = "bar-row" + (em === json.emotion ? " top" : "");
+      row.innerHTML = `
+        <span class="bar-label">${em}</span>
+        <span class="bar-track"><span class="bar-fill" style="width:${pct.toFixed(1)}%;background:var(${COLOR_VAR[em]})"></span></span>
+        <span class="bar-val">${pct.toFixed(1)}%</span>`;
+      bars.appendChild(row);
+    });
+
+    table.innerHTML = `
+      <table class="probs">
+        <thead><tr><th>Emotion</th><th style="text-align:right">Probability</th><th style="text-align:right">Rank</th></tr></thead>
+        <tbody>${EMOTIONS.map((em) => {
+          const p = (json.probabilities[em] ?? 0) * 100;
+          const rank = ranked.findIndex((r) => r[0] === em) + 1;
+          return `<tr><td><span class="swatch-sm" style="background:var(${COLOR_VAR[em]})"></span>${em}</td>
+                      <td class="num">${p.toFixed(1)}%</td><td class="num">${rank}</td></tr>`;
+        }).join("")}</tbody>
+      </table>`;
+  }
+
+  $("viewToggle").addEventListener("click", () => {
+    const showingTable = !$("tableView").classList.contains("hidden");
+    $("tableView").classList.toggle("hidden", showingTable);
+    $("barsView").classList.toggle("hidden", !showingTable);
+    $("viewToggle").textContent = showingTable ? "Table view" : "Chart view";
+  });
+
+  function renderWarnings(json) {
+    const slot = $("warnSlot");
+    slot.innerHTML = "";
+    (json.warnings || []).forEach((w) => {
+      const d = document.createElement("div");
+      d.className = "note";
+      d.textContent = w;
+      slot.appendChild(d);
+    });
+  }
+
+  // ---------------- timeline ----------------
+  function renderTimeline(tl) {
+    $("timelineSection").classList.remove("hidden");
+    $("tlSub").textContent = tl.attribution_exact
+      ? "This clip fitted inside one window, so these numbers are the classifier's exact arithmetic."
+      : "This clip was split into several windows, so these numbers are approximate supporting evidence — not exact arithmetic.";
+
+    const track = $("tlTrack"), axis = $("tlAxis");
+    track.innerHTML = '<div class="tl-zero"></div>';
+    axis.innerHTML = "";
+
+    const windows = tl.windows;
+    const maxAbs = Math.max(1, ...windows.map((w) => Math.abs(w.contribution_pct)));
+    maxEnergy = Math.max(1e-9, ...windows.map((w) => w.energy_rms || 0));
+    const HALF = 80;
+
+    windows.forEach((w) => {
+      const el = document.createElement("div");
+      el.className = "tl-win";
+      el.style.flex = Math.max(0.01, w.end_s - w.start_s).toFixed(3);
+      el.setAttribute("role", "button");
+      el.setAttribute("tabindex", "0");
+      el.setAttribute("aria-selected", "false");
+
+      const bar = document.createElement("div");
+      const pos = w.contribution_pct >= 0;
+      bar.className = "tl-bar" + (pos ? "" : " neg");
+      bar.style.height = Math.max(2, Math.round((Math.abs(w.contribution_pct) / maxAbs) * HALF)) + "px";
+      bar.style.background = pos ? "var(--div-pos)" : "var(--div-neg)";
+      bar.style[pos ? "bottom" : "top"] = "50%";
+      el.appendChild(bar);
+
+      if (w.window_idx === tl.top_window_idx) {
+        const flag = document.createElement("span");
+        flag.className = "tl-flag";
+        flag.textContent = "strongest";
+        flag.style[pos ? "bottom" : "top"] = `calc(50% + ${bar.style.height})`;
+        flag.style[pos ? "top" : "bottom"] = "auto";
+        el.appendChild(flag);
+      }
+
+      const label = `${w.start_s.toFixed(1)}–${w.end_s.toFixed(1)}s · ${pos ? "+" : ""}${w.contribution_pct.toFixed(1)}%`;
+      el.addEventListener("mousemove", (e) => showTip(e, label));
+      el.addEventListener("mouseleave", hideTip);
+      el.addEventListener("click", () => selectWindow(w, el));
+      el.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectWindow(w, el); } });
+      track.appendChild(el);
+
+      const tick = document.createElement("span");
+      tick.textContent = w.start_s.toFixed(0) + "s";
+      axis.appendChild(tick);
+    });
+
+    const idx = tl.top_window_idx || 0;
+    selectWindow(windows[idx] || windows[0], track.children[idx + 1] || track.children[1], true);
+  }
+
+  function selectWindow(w, el, noPlay) {
+    document.querySelectorAll('.tl-win[aria-selected="true"]').forEach((n) => n.setAttribute("aria-selected", "false"));
+    if (el) el.setAttribute("aria-selected", "true");
+    if (!noPlay) playSegment(w.start_s, w.end_s);
+
+    const pos = w.contribution_pct >= 0;
+    const energyPct = Math.max(2, Math.round(((w.energy_rms || 0) / maxEnergy) * 100));
+    $("tlEvidence").innerHTML = `
+      <div class="evidence-grid">
+        <div><div class="ev-k">Segment</div><div class="ev-v">${w.start_s.toFixed(1)}s – ${w.end_s.toFixed(1)}s</div></div>
+        <div><div class="ev-k">Contribution</div><div class="ev-v" style="color:${pos ? "var(--div-pos)" : "var(--div-neg)"}">${pos ? "+" : ""}${w.contribution_pct.toFixed(1)}%</div>
+             <div class="fine">${pos ? "supports the prediction" : "argues against it"}</div></div>
+        <div><div class="ev-k">Pitch</div><div class="ev-v">${w.pitch_hz ? Math.round(w.pitch_hz) + " Hz" : "none detected"}</div></div>
+        <div><div class="ev-k">Loudness</div><div class="ev-v">${energyPct}%</div>
+             <div class="energy-track"><span class="energy-fill" style="width:${energyPct}%"></span></div></div>
+      </div>
+      <p class="fine" style="margin:14px 0 0;">${noPlay ? "Click this window to hear it." : "Playing this segment — click any window to hear it again."}</p>`;
+  }
+
+  // ---------------- playback ----------------
+  // Everything plays through ordinary <audio> elements, not the Web Audio API. On phones Web Audio
+  // stays suspended unless explicitly resumed inside a tap, and on iPhones it is muted whenever the
+  // silent switch is on -- which is why timeline replay was silent on mobile. Media elements have
+  // neither problem. play() is always called synchronously inside the tap so mobile browsers allow it.
+  let recordingUrl = null, segStop = null, segEnd = null;
+  const segPlayer = new Audio();
+  segPlayer.preload = "auto";
+  segPlayer.id = "segPlayer";
+  segPlayer.hidden = true;
+  segPlayer.setAttribute("playsinline", "");
+  document.body.appendChild(segPlayer);
+  const fullPlayers = () => [$("clipAudio"), $("clipAudio2")];
+
+  function setRecordingAudio(samples, sr) {
+    if (recordingUrl) URL.revokeObjectURL(recordingUrl);
+    recordingUrl = URL.createObjectURL(encodeWavPCM16(samples, sr));
+    fullPlayers().forEach((a) => { a.src = recordingUrl; a.load(); });
+    $("listen2").classList.remove("hidden");
+    segPlayer.src = recordingUrl;
+    segPlayer.load();
+  }
+
+  function stopSegment() {
+    clearInterval(segStop);
+    segStop = null;
+    segEnd = null;
+    segPlayer.pause();
+  }
+
+  function playSegment(startS, endS) {
+    if (!recordingUrl) return;
+    fullPlayers().forEach((a) => a.pause());
+    stopSegment();
+    segEnd = endS;
+    const seek = () => { try { segPlayer.currentTime = startS; } catch (e) {} };
+    if (segPlayer.readyState >= 1) seek(); else segPlayer.addEventListener("loadedmetadata", seek, { once: true });
+    const p = segPlayer.play();
+    if (p && p.catch) p.catch(() => {});
+  }
+  // Stop on the audio's own clock, not a timer started at the tap: phones can take a second to start
+  // playing after a seek, and a tap-based timer cut the segment short.
+  segPlayer.addEventListener("playing", () => {
+    clearInterval(segStop);
+    segStop = setInterval(() => {
+      if (segEnd !== null && segPlayer.currentTime >= segEnd) stopSegment();
+    }, 40);
+  });
+  segPlayer.addEventListener("ended", stopSegment);
+  // Starting the full recording stops any segment that is playing, and vice versa.
+  fullPlayers().forEach((a) => a.addEventListener("play", () => {
+    stopSegment();
+    fullPlayers().forEach((b) => { if (b !== a) b.pause(); });
+  }));
+
+  const playAll = $("playAllBtn");
+  const syncPlayAll = () => {
+    const a = $("clipAudio");
+    const on = !a.paused && !a.ended;
+    playAll.classList.toggle("playing", on);
+    playAll.innerHTML = on ? "&#10074;&#10074; Pause" : "&#9654; Hear your recording";
+  };
+  playAll.addEventListener("click", () => {
+    const a = $("clipAudio");
+    if (!a.src) return;
+    if (a.paused || a.ended) {
+      if (a.ended) a.currentTime = 0;
+      const p = a.play();
+      if (p && p.catch) p.catch(() => {});
+    } else {
+      a.pause();
+    }
+  });
+  ["play", "pause", "ended"].forEach((ev) => $("clipAudio").addEventListener(ev, syncPlayAll));
+
+  // ---------------- tooltip ----------------
+  const tip = $("tip");
+  function showTip(e, text) {
+    tip.textContent = text;
+    tip.classList.add("on");
+    tip.style.left = Math.min(e.clientX + 12, window.innerWidth - tip.offsetWidth - 10) + "px";
+    tip.style.top = (e.clientY - 34) + "px";
+  }
+  function hideTip() { tip.classList.remove("on"); }
+
+  // ---------------- save training clip ----------------
+  $("saveClipBtn").addEventListener("click", () => {
+    if (!monoSamples || !sampleRate) return;
+    const speaker = ($("speakerId").value.trim() || "unknown").replace(/[^A-Za-z0-9_-]/g, "");
+    const emotion = $("emotionSelect").value;
+    const take = ($("takeNum").value.trim() || "1").replace(/[^0-9]/g, "") || "1";
+    const filename = `${speaker}_${emotion}_${take}.wav`;
+    const url = URL.createObjectURL(encodeWavPCM16(monoSamples, sampleRate));
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    $("saveClipStatus").textContent = "Saved " + filename;
+  });
+
+  // ---------------- adaptive routing ----------------
+  let routingInfo = null, routingCase = null, routingAudio = {}, routingRuns = {};
+
+  async function loadRoutingInfo() {
+    if (routingInfo) return routingInfo;
+    routingInfo = await fetchRoutingInfo();
+    if (!routingInfo) {
+      $("routingUnavailable").classList.remove("hidden");
+      $("routingUnavailable").innerHTML =
+        "<b>Adaptive routing isn't available on this server.</b> Point <code>adaptive.artifacts_dir</code> " +
+        "in <code>config.yaml</code> at the Router folder and restart the API.";
+      return null;
+    }
+    $("routingApp").classList.remove("hidden");
+    $("routingUnavailable").classList.add("hidden");
+    buildCaseTabs();
+    buildRoutingStats();
+    resetPipeline();
+    return routingInfo;
+  }
+
+  function buildCaseTabs() {
+    const blurb = {
+      easy: "cheap model is confident and right",
+      borderline: "cheap model is confident and wrong",
+      hard: "cheap model is unsure and wrong",
+    };
+    $("caseTabs").innerHTML = routingInfo.demo_clips.map((c, i) => `
+      <button class="case-tab" role="tab" data-case="${c.case}" aria-selected="${i === 0}">
+        <b>${c.case}</b><span>${blurb[c.case] || ""}</span>
+      </button>`).join("");
+    routingCase = routingInfo.demo_clips[0].case;
+    $("caseTabs").querySelectorAll(".case-tab").forEach((t) => {
+      t.addEventListener("click", () => {
+        $("caseTabs").querySelectorAll(".case-tab")
+          .forEach((o) => o.setAttribute("aria-selected", String(o === t)));
+        routingCase = t.dataset.case;
+        resetPipeline();
+      });
+    });
+    updateCounter();
+  }
+
+  function buildRoutingStats() {
+    const m = routingInfo.metrics, pct = (v) => (v == null ? "—" : (v * 100).toFixed(1) + "%");
+    // routed 67.76 vs heavy 67.84 both round to 67.8 at 1dp -- show 2 here so the gap is visible
+    const pct2 = (v) => (v == null ? "—" : (v * 100).toFixed(2) + "%");
+    $("routingStats").innerHTML = `
+      <div class="stat">
+        <div class="stat-val">${pct2(m.routed_test_accuracy)}</div>
+        <div class="stat-k">Routed accuracy — ${m.accuracy_retention_percent?.toFixed(2)}% of what
+        running the heavy model on everything would get you (${pct2(m.heavy_test_accuracy)}).</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val">${pct(m.invocation_rate)}</div>
+        <div class="stat-k">of clips still escalate. The saving is real but modest — this router
+        buys accuracy retention far more than it buys compute.</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val">≤ ${pct(m.certified_error_bound)}</div>
+        <div class="stat-k">Certified error bound at ${pct(m.certified_confidence)} confidence,
+        which is what fixes the threshold at ${routingInfo.threshold}.</div>
+      </div>`;
+    $("routingCaveats").textContent = routingInfo.latency_caveat;
+    $("corpusCaveat").textContent = routingInfo.corpus_caveat;
+  }
+
+  function updateCounter() {
+    const runs = Object.values(routingRuns);
+    if (!runs.length) { $("invCounter").textContent = ""; return; }
+    const esc = runs.filter((r) => r.branch_used === "heavy").length;
+    $("invCounter").textContent =
+      `${esc} of ${runs.length} recording${runs.length > 1 ? "s" : ""} you've run needed the heavy model`;
+  }
+
+  const STAGES = ["audio", "light", "router", "heavy", "final"];
+  const STAGE_TITLES = {
+    audio: "Audio in",
+    light: "Light branch — MFCC + small MLP",
+    router: "Router — is this worth escalating?",
+    heavy: "Heavy branch — Emotion2Vec+",
+    final: "Final answer",
+  };
+  const CANCEL = Symbol("cancelled");
+
+  // The demo page ("") and the live Analyze panel ("lv-") share one renderer; the prefix keeps
+  // their element ids apart.
+  function pipeHTML(p) {
+    return STAGES.map((s, i) => `
+      <div class="stage" id="${p}st-${s}">
+        <div class="stage-head">
+          <span class="stage-n">${i + 1}</span><span class="stage-title">${s === "final" && p ? "Routed system's answer" : STAGE_TITLES[s]}</span>
+          <span class="stage-cost" id="${p}cost-${s}"></span>
+        </div>
+        <div class="stage-body" id="${p}body-${s}"></div>
+      </div>${i < STAGES.length - 1 ? `<div class="link" id="${p}lk-${i + 1}"></div>` : ""}`).join("");
+  }
+
+  function resetPipe(p) {
+    STAGES.forEach((s) => {
+      $(`${p}st-${s}`).className = "stage";
+      $(`${p}body-${s}`).innerHTML = "";
+      $(`${p}cost-${s}`).textContent = "";
+    });
+    [1, 2, 3, 4].forEach((i) => ($(`${p}lk-${i}`).className = "link"));
+  }
+
+  function resetPipeline() {
+    resetPipe("");
+    const prev = routingRuns[routingCase];
+    $("routingStatus").textContent = prev ? "Run again to replay." : "";
+  }
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const emoColor = (e) => `var(${COLOR_VAR[e] || "--ink-muted"})`;
+
+  // Plays one routed result through the five stages. `o` carries what differs between the demo
+  // (ground truth known) and a live recording (it is not): trueLabel is null for the latter, so
+  // nothing is ever called "correct" or "wrong" without a real label to compare against.
+  async function playPipeline(p, r, o) {
+    const E = (kind, stage) => $(`${p}${kind}-${stage}`);
+    const wait = async (ms) => { await sleep(ms); if (!o.alive()) throw CANCEL; };
+    const m = o.metrics, truth = o.trueLabel || null;
+    const escalated = r.branch_used === "heavy";
+    const chip = (label, conf) => `
+      <span class="verdict-chip" style="border-color:${emoColor(label)}">
+        <span class="dot" style="background:${emoColor(label)}"></span>${label} · ${(conf * 100).toFixed(1)}%
+      </span>`;
+
+    try {
+      // 1 — audio
+      if (!o.skipAudio) {
+        E("st", "audio").className = "stage active";
+        E("body", "audio").innerHTML =
+          `A ${o.durationSec.toFixed(1)}s recording. Its true label is
+           <b style="color:${emoColor(truth)}">${truth}</b> —
+           shown here only so you can see whether each branch got it right.`;
+        await wait(700);
+        E("st", "audio").className = "stage done";
+        E("lk", "1").className = "link flow"; await wait(650);
+      }
+
+      // 2 — light
+      E("st", "light").className = "stage active";
+      E("cost", "light").textContent = `always paid · ~${m.always_paid_sec.toFixed(3)}s on a 3s clip`;
+      E("body", "light").innerHTML = `
+        <div class="row" style="gap:14px;">
+          ${chip(r.light_prediction, r.light_confidence)}
+          ${truth ? `<span class="fine">${r.light_prediction === truth ? "correct" : "wrong — the true label is " + truth}</span>` : ""}
+        </div>
+        <p class="fine" style="margin:10px 0 0;">This runs on every recording, start to finish. It is
+        the whole reason the cheap path can ever be enough.</p>`;
+      await wait(900);
+      E("st", "light").className = "stage done";
+      E("lk", "2").className = "link flow"; await wait(650);
+
+      // 3 — router
+      E("st", "router").className = "stage active";
+      E("cost", "router").textContent = "reads the first 3s + the light branch's confidence";
+      const pos = Math.min(100, Math.max(0, r.router_score * 100));
+      E("body", "router").innerHTML = `
+        <div class="gauge">
+          <div class="gauge-track">
+            <div class="gauge-fill" id="${p}gfill" style="background:${escalated ? "var(--div-neg)" : "var(--div-pos)"}"></div>
+            <div class="gauge-thresh" data-t="${r.router_threshold}" style="left:${r.router_threshold * 100}%"></div>
+          </div>
+          <div class="gauge-scale"><span>0.0 — keep the cheap answer</span><span>1.0 — escalate</span></div>
+        </div>
+        <div class="row" style="margin-top:14px; gap:14px;">
+          <span class="gauge-val" style="color:${escalated ? "var(--div-neg)" : "var(--div-pos)"}">${r.router_score.toFixed(4)}</span>
+          <span class="fine">vs threshold ${r.router_threshold} →
+            <b>${escalated ? "escalate" : "stay light"}</b></span>
+        </div>`;
+      await wait(60);
+      $(`${p}gfill`).style.width = pos + "%";
+      await wait(1100);
+      E("st", "router").className = "stage done";
+
+      // 4 — branch point
+      if (escalated) {
+        E("lk", "3").className = "link flow"; await wait(650);
+        E("st", "heavy").className = "stage active";
+        E("cost", "heavy").textContent =
+          `~${m.escalated_extra_sec.toFixed(2)}s extra on a 3s clip · ~${m.cost_multiple}× the light path`;
+        E("body", "heavy").innerHTML = `
+          <div class="row" style="gap:14px;">
+            ${chip(r.heavy_prediction, r.heavy_confidence)}
+            ${truth ? `<span class="fine">${r.heavy_prediction === truth ? "correct" : "also wrong"}</span>` : ""}
+          </div>
+          <p class="fine" style="margin:10px 0 0;">A 94M-parameter encoder ran because the router
+          judged this recording worth it.</p>`;
+        await wait(1000);
+        E("st", "heavy").className = "stage done";
+      } else {
+        E("lk", "3").className = "link cut";
+        E("st", "heavy").className = "stage skipped";
+        E("cost", "heavy").textContent = "not run · cost avoided";
+        E("body", "heavy").innerHTML = `<p class="fine" style="margin:0;">The encoder never ran. That is
+          the saving — and it is also the risk the threshold is deliberately taking.</p>`;
+        await wait(700);
+      }
+      E("lk", "4").className = "link flow"; await wait(600);
+
+      // 5 — final
+      const finalRight = truth ? r.final_prediction === truth : null;
+      E("st", "final").className = "stage active done";
+      E("cost", "final").textContent = `measured here: ${(o.totalMs / 1000).toFixed(2)}s wall clock`;
+      E("body", "final").innerHTML = `
+        <div class="row" style="gap:14px;">
+          ${chip(r.final_prediction, r.final_confidence)}
+          ${truth
+            ? `<span class="badge"><span class="dot" style="background:${finalRight ? "var(--status-good)" : "var(--status-critical)"}"></span>${finalRight ? "correct" : "wrong"}</span>`
+            : `<span class="badge">decided by the ${r.branch_used} branch</span>`}
+        </div>
+        <p class="fine" style="margin:10px 0 0;">Decided by the <b>${r.branch_used}</b> branch, because the
+        router scored ${r.router_score.toFixed(4)} ${escalated ? "at or above" : "below"} the ${r.router_threshold}
+        threshold.${truth && !finalRight && !escalated
+          ? " It came within " + Math.abs(r.router_threshold - r.router_score).toFixed(4) +
+            " of escalating, and escalating would have got it right. This is exactly the trade the certified threshold is making."
+          : ""}</p>`;
+      return true;
+    } catch (e) {
+      if (e === CANCEL) return false;
+      throw e;
+    }
+  }
+
+  async function runRoutingDemo() {
+    const btn = $("runRouting");
+    btn.disabled = true;
+    resetPipe("");
+    $("routingStatus").innerHTML = '<span class="spin"></span>Running the real pipeline…';
+
+    let data;
+    try {
+      if (!routingAudio[routingCase]) {
+        const a = await fetch(`${apiBase()}/adaptive/demo/${routingCase}/audio`);
+        routingAudio[routingCase] = await a.blob();
+      }
+      const form = new FormData();
+      form.append("file", routingAudio[routingCase], "clip.wav");
+      const resp = await fetch(apiBase() + "/predict/adaptive", { method: "POST", body: form });
+      const json = await resp.json();
+      if (!resp.ok) throw new Error(json.message || "server error");
+      data = json;
+    } catch (e) {
+      $("routingStatus").textContent = "Could not run it: " + e.message;
+      btn.disabled = false;
+      return;
+    }
+
+    const r = data.adaptive_routing;
+    const meta = routingInfo.demo_clips.find((c) => c.case === routingCase) || {};
+    $("routingStatus").textContent = "";
+
+    await playPipeline("", r, {
+      durationSec: data.duration_sec, totalMs: data.latency_ms.total_ms,
+      metrics: routingInfo.metrics, trueLabel: meta.true_label, alive: () => true,
+    });
+
+    routingRuns[routingCase] = r;
+    updateCounter();
+    btn.disabled = false;
+  }
+
+  // ---------------- live routing on the Analyze page ----------------
+  let liveToken = 0, liveFinal = null, headlineEmotion = null, routingInfoCache = null;
+
+  async function fetchRoutingInfo() {
+    if (routingInfoCache) return routingInfoCache;
+    try {
+      const resp = await fetch(apiBase() + "/adaptive/info");
+      if (!resp.ok) return null;
+      routingInfoCache = await resp.json();
+      return routingInfoCache;
+    } catch (e) { return null; }
+  }
+
+  function updateLiveCompare() {
+    const el = $("liveCompare");
+    if (!liveFinal || !headlineEmotion) { el.textContent = ""; return; }
+    el.innerHTML = liveFinal.final_prediction === headlineEmotion
+      ? `<b>Both systems agree: ${esc(headlineEmotion)}.</b> The headline below comes from the product's locked
+         classifier; the panel below is a separate routed system that reached the same answer.`
+      : `<b>The two systems disagree.</b> The headline below (<b>${esc(headlineEmotion)}</b>) comes from the
+         product's locked classifier. This panel is a separate routed system and answered
+         <b>${esc(liveFinal.final_prediction)}</b>. They use different classifier heads trained on different
+         data, so on a real voice they can differ. Only the headline classifier has a measured real-voice accuracy (about 33%).`;
+  }
+
+  // Returns a promise that resolves once the routed result has come back (not when the animation
+  // ends), so the caller can start the slower headline analysis while the pipeline is still moving.
+  function startLiveRouting() {
+    const token = ++liveToken, alive = () => token === liveToken;
+    let resolveReady;
+    const ready = new Promise((res) => (resolveReady = res));
+    liveFinal = null;
+    updateLiveCompare();
+
+    (async () => {
+      const wrap = $("liveRouting");
+      try {
+        if (!monoSamples || !sampleRate) return;
+        const info = await fetchRoutingInfo();
+        if (!info) { wrap.classList.add("hidden"); return; }   // server has no adaptive routing: Analyze behaves as before
+        if (!alive()) return;
+
+        const dur = monoSamples.length / sampleRate;
+        const whole = dur <= info.router_audio_sec + 1e-6;
+        const pipe = $("liveRoutingPipe");
+        if (!pipe.children.length) pipe.innerHTML = pipeHTML("lv-");
+        resetPipe("lv-");
+        wrap.classList.remove("hidden");
+
+        $("liveNotes").innerHTML =
+          (whole ? "" : `<div class="note"><b>The router heard only the first ${info.router_audio_sec.toFixed(1)}s</b>
+             of your ${dur.toFixed(1)}s recording. That is a placeholder rule, not a validated one — the system was
+             only ever evaluated on clips whose opening <em>was</em> the whole clip.</div>`) +
+          `<div class="note" style="margin-top:10px;"><b>Calibrated on acted speech.</b> The router has never been
+             checked on real voices, so whether it escalates the right recordings on yours is unproven.
+             This project's measured real-world accuracy is about 33%, and routing does not change that.</div>
+           <div class="note" style="margin-top:10px;"><b>Scores near the threshold are fragile.</b> In testing, simply
+             passing a demo clip through the browser's audio decode and re-encode moved its router score from 0.375 to
+             0.423 and flipped the decision. A score close to ${info.threshold} means "could easily have gone the other
+             way", not a precise verdict.</div>`;
+
+        // What is genuinely true the instant Analyze is clicked: the audio is in, and the cheap
+        // branch is running. Everything after that waits for the real result.
+        $("lv-st-audio").className = "stage done";
+        $("lv-body-audio").innerHTML =
+          `Your recording — <b>${dur.toFixed(1)}s</b>. The light branch hears all of it. The router will hear
+           ${whole ? "the same audio (it is no longer than 3s)" : "only the first 3.0s"}.`;
+        $("lv-lk-1").className = "link flow";
+        $("lv-st-light").className = "stage active";
+        $("lv-cost-light").textContent = "running…";
+        $("lv-body-light").innerHTML =
+          '<span class="spin"></span>Extracting MFCC features from the whole recording and asking the small model…';
+        wrap.scrollIntoView({ behavior: "smooth", block: "start" });
+
+        let data;
+        try {
+          const form = new FormData();
+          form.append("file", await uploadWav(), "clip.wav");
+          const resp = await fetch(apiBase() + "/predict/adaptive", { method: "POST", body: form });
+          const json = await resp.json();
+          if (!resp.ok) throw new Error(ERROR_MESSAGES[json.error_code] || json.message || json.detail || "server error");
+          data = json;
+        } catch (e) {
+          if (alive()) {
+            $("lv-st-light").className = "stage";
+            $("lv-cost-light").textContent = "";
+            $("lv-body-light").innerHTML = `<span class="fine">Routing could not run: ${esc(e.message)}</span>`;
+          }
+          return;
+        }
+        resolveReady();
+        if (!alive()) return;
+
+        const finished = await playPipeline("lv-", data.adaptive_routing, {
+          skipAudio: true, durationSec: data.duration_sec, totalMs: data.latency_ms.total_ms,
+          metrics: info.metrics, trueLabel: null, alive,
+        });
+        if (finished) { liveFinal = data.adaptive_routing; updateLiveCompare(); }
+      } finally {
+        resolveReady();
+      }
+    })();
+
+    return ready;
+  }
+
+  $("runRouting").addEventListener("click", runRoutingDemo);
+  // Same reasoning as the timeline: a media element pointed straight at the clip, play() called inside
+  // the tap (no fetch first, which would leave the tap's permission behind on mobile).
+  const demoPlayer = new Audio();
+  $("playClip").addEventListener("click", () => {
+    demoPlayer.src = `${apiBase()}/adaptive/demo/${routingCase}/audio`;
+    const p = demoPlayer.play();
+    if (p && p.catch) p.catch(() => { $("routingStatus").textContent = "Could not play that clip."; });
+  });
+
+  // ---------------- menu ----------------
+  $("menuBtn").addEventListener("click", () => {
+    const open = $("mainNav").classList.toggle("open");
+    $("menuBtn").setAttribute("aria-expanded", String(open));
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { $("mainNav").classList.remove("open"); $("menuBtn").setAttribute("aria-expanded", "false"); }
+  });
+
+  // ---------------- hero waveform (decorative) ----------------
+  (function buildWave() {
+    const w = $("heroWave");
+    if (!w) return;
+    const n = 56;
+    w.innerHTML = Array.from({ length: n }, (_, i) => {
+      const h = 8 + Math.round(26 * Math.abs(Math.sin(i * 0.55) * Math.cos(i * 0.17)));
+      return `<i style="height:${h}px; animation-delay:${(i % 14) * -0.11}s"></i>`;
+    }).join("");
+  })();
+
+  // ---------------- boot ----------------
+  renderRoute();
+  (async () => {
+    await autodetectApi();
+    if (await connectWithWake()) {
+      if (currentRoute() === "/routing" && !routingInfo) loadRoutingInfo();
+      if (currentRoute() === "/method") refreshModelCard();
+    }
+  })();
+})();
+</script>
+</body>
+</html>

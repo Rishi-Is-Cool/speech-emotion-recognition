@@ -1,0 +1,270 @@
+{
+  "notebook": "28_GreenSER_Emotion2Vec_RiskControlled_Routing",
+  "generated": "2026-10-07T05:07:13",
+  "data": {
+    "train_rows": 5805,
+    "val_rows": 1163,
+    "router_fit_rows": 697,
+    "router_fit_informative_rows": 323,
+    "calibration_rows": 466,
+    "test_rows": 1278,
+    "emotions": [
+      "angry",
+      "disgust",
+      "fear",
+      "happy",
+      "neutral",
+      "sad"
+    ],
+    "chance_level": 0.16666666666666666
+  },
+  "light_branch": {
+    "description": "MFCC + MLP(256,128)",
+    "source": "loaded: /content/drive/MyDrive/FYP/data2/saved_models/lightweight_mlp.joblib",
+    "val_accuracy": 0.46173688736027513,
+    "test_accuracy": 0.46635367762128327,
+    "test_macro_f1": 0.4551502179301343
+  },
+  "heavy_branch": {
+    "selected": "e2vplus_lr",
+    "description": "Emotion2Vec+ / StandardScaler + LogisticRegression",
+    "encoder": "iic/emotion2vec_plus_base (frozen)",
+    "test_accuracy": 0.6784037558685446,
+    "test_macro_f1": 0.6761912739225632,
+    "all_candidates": [
+      {
+        "candidate": "e2vplus_lr",
+        "description": "Emotion2Vec+ / StandardScaler + LogisticRegression",
+        "val_accuracy": 0.7076526225279449,
+        "test_accuracy": 0.6784037558685446,
+        "test_macro_f1": 0.6761912739225632,
+        "train_time_s": 50.56
+      },
+      {
+        "candidate": "e2vplus_mlp",
+        "description": "Emotion2Vec+ / MLP(256,128)",
+        "val_accuracy": 0.6878761822871883,
+        "test_accuracy": 0.6666666666666666,
+        "test_macro_f1": 0.6640246354683309,
+        "train_time_s": 10.56
+      },
+      {
+        "candidate": "hubert_mlp",
+        "description": "HuBERT-base-ls960 / MLP(256,128)  [control]",
+        "val_accuracy": 0.6053310404127257,
+        "test_accuracy": 0.6392801251956182,
+        "test_macro_f1": 0.6356537279785391,
+        "train_time_s": 70.33
+      }
+    ]
+  },
+  "router": {
+    "selected": "Logistic Regression",
+    "uses_ood_feature": false,
+    "feature_order": [
+      "snr",
+      "rms_energy",
+      "spectral_bandwidth",
+      "spectral_flatness",
+      "spectral_centroid",
+      "zero_crossing_rate",
+      "spectral_rolloff",
+      "spectral_contrast",
+      "spectral_flux",
+      "energy_entropy",
+      "mfcc_mean",
+      "mfcc_std",
+      "max_probability",
+      "prediction_margin",
+      "entropy"
+    ],
+    "benchmark": [
+      {
+        "router": "Logistic Regression",
+        "n_features": 15,
+        "calib_accuracy": 0.592274678111588,
+        "calib_macro_f1": 0.592004128803937,
+        "calib_heavy_recall": 0.5877551020408164,
+        "fit_time_s": 0.015
+      },
+      {
+        "router": "Logistic Regression + OOD",
+        "n_features": 16,
+        "calib_accuracy": 0.5815450643776824,
+        "calib_macro_f1": 0.5812191513777323,
+        "calib_heavy_recall": 0.5795918367346938,
+        "fit_time_s": 0.023
+      },
+      {
+        "router": "Decision Tree",
+        "n_features": 15,
+        "calib_accuracy": 0.5686695278969958,
+        "calib_macro_f1": 0.5680947308719169,
+        "calib_heavy_recall": 0.5061224489795918,
+        "fit_time_s": 0.01
+      },
+      {
+        "router": "Decision Tree + OOD",
+        "n_features": 16,
+        "calib_accuracy": 0.5236051502145923,
+        "calib_macro_f1": 0.5197036101619373,
+        "calib_heavy_recall": 0.5836734693877551,
+        "fit_time_s": 0.011
+      },
+      {
+        "router": "Random Forest",
+        "n_features": 15,
+        "calib_accuracy": 0.5321888412017167,
+        "calib_macro_f1": 0.3916157623667505,
+        "calib_heavy_recall": 0.963265306122449,
+        "fit_time_s": 0.56
+      },
+      {
+        "router": "Random Forest + OOD",
+        "n_features": 16,
+        "calib_accuracy": 0.5236051502145923,
+        "calib_macro_f1": 0.38374475791078916,
+        "calib_heavy_recall": 0.9510204081632653,
+        "fit_time_s": 0.563
+      }
+    ],
+    "majority_class_floor": 0.5257510729613734
+  },
+  "fixed_threshold_systems": [
+    {
+      "system": "light only (MFCC + MLP)",
+      "accuracy": 0.46635367762128327,
+      "macro_f1": 0.4551502179301343,
+      "heavy_invocation_%": 0.0,
+      "accuracy_retention_%": 68.74279123414071
+    },
+    {
+      "system": "heavy only (Emotion2Vec+ / StandardScaler + LogisticRegression)",
+      "accuracy": 0.6784037558685446,
+      "macro_f1": 0.6761912739225632,
+      "heavy_invocation_%": 100.0,
+      "accuracy_retention_%": 100.0
+    },
+    {
+      "system": "routed @ P(heavy)>=0.5 (Emotion2Vec+ heavy)",
+      "accuracy": 0.622848200312989,
+      "macro_f1": 0.6208750313537251,
+      "heavy_invocation_%": 50.93896713615024,
+      "accuracy_retention_%": 91.81084198385237
+    },
+    {
+      "system": "heavy only (HuBERT + MLP) [control]",
+      "accuracy": 0.6392801251956182,
+      "macro_f1": 0.6356537279785391,
+      "heavy_invocation_%": 100.0,
+      "accuracy_retention_%": 100.0
+    },
+    {
+      "system": "routed @ P(heavy)>=0.5 (HuBERT heavy) [control]",
+      "accuracy": 0.6095461658841941,
+      "macro_f1": 0.6084501518558588,
+      "heavy_invocation_%": 58.60719874804382,
+      "accuracy_retention_%": 95.34883720930232
+    }
+  ],
+  "risk_control": {
+    "lambda_star": 0.375,
+    "lambda_star_is_all_light": false,
+    "alpha": 0.31609442060085835,
+    "alpha_was_relaxed": false,
+    "alpha_explanation": "heavy-only error on calibration (0.2661) + tolerance (0.05)",
+    "min_feasible_alpha": 0.30767642744608026,
+    "delta": 0.05,
+    "calibration_rows": 466,
+    "calibration_risk": 0.27896995708154504,
+    "calibration_invocation": 0.8562231759656652,
+    "test_accuracy": 0.6776212832550861,
+    "test_error": 0.3223787167449139,
+    "test_macro_f1": 0.6749035639898334,
+    "test_invocation": 0.8513302034428795,
+    "heavy_only_test_accuracy": 0.6784037558685446,
+    "accuracy_retention_percent": 99.88465974625144
+  },
+  "green_metrics": {
+    "latency_seconds_per_clip": {
+      "audio_decode_s": 0.0003473470000017187,
+      "mfcc_extract_s": 0.008293969300001435,
+      "asca_extract_s": 0.042035431299996165,
+      "light_head_s": 0.00022772626000005402,
+      "heavy_head_s": 0.0005485672000003206,
+      "router_s": 0.0010765279299999975,
+      "emotion2vec_plus_encoder_s": 1.2346329063999975
+    },
+    "cost_always_s": 0.05198100178999937,
+    "cost_escalation_s": 1.2351814735999977,
+    "absolute_seconds_valid": true,
+    "model_sizes_mb": {
+      "light_mlp": 0.607518196105957,
+      "heavy_e2vplus_lr": 0.054085731506347656,
+      "router": 0.0014333724975585938
+    },
+    "encoder_params_millions": 94.0,
+    "energy_kwh": null,
+    "caveats": [
+      "Timed on local-disk copies of the first 20 readable test clips. Fetching them from Drive took 0.3894 s/clip, which is storage latency and is excluded from every figure.",
+      "Energy not measured (MEASURE_ENERGY is False)."
+    ]
+  },
+  "selective_prediction": {
+    "system": "routed @ certified lambda*",
+    "aurc": 0.17309459758279325,
+    "ece_10bin": 0.036839826873687094,
+    "operating_points": [
+      {
+        "coverage": 1.0,
+        "clips_answered": 1278,
+        "error_rate": 0.3223787167449139,
+        "accuracy": 0.6776212832550861,
+        "accuracy_gain_pp": 0.0
+      },
+      {
+        "coverage": 0.8998435054773083,
+        "clips_answered": 1150,
+        "error_rate": 0.29304347826086957,
+        "accuracy": 0.7069565217391305,
+        "accuracy_gain_pp": 2.93352384840444
+      },
+      {
+        "coverage": 0.8004694835680751,
+        "clips_answered": 1023,
+        "error_rate": 0.2590420332355816,
+        "accuracy": 0.7409579667644184,
+        "accuracy_gain_pp": 6.33366835093323
+      },
+      {
+        "coverage": 0.7003129890453834,
+        "clips_answered": 895,
+        "error_rate": 0.22793296089385476,
+        "accuracy": 0.7720670391061453,
+        "accuracy_gain_pp": 9.44457558510592
+      },
+      {
+        "coverage": 0.5007824726134585,
+        "clips_answered": 640,
+        "error_rate": 0.1828125,
+        "accuracy": 0.8171875,
+        "accuracy_gain_pp": 13.956621674491387
+      },
+      {
+        "coverage": 0.3004694835680751,
+        "clips_answered": 384,
+        "error_rate": 0.11197916666666667,
+        "accuracy": 0.8880208333333334,
+        "accuracy_gain_pp": 21.03995500782473
+      }
+    ]
+  },
+  "reference_numbers_not_applicable_to_this_system": {
+    "heavy_hubert_test_accuracy": 0.6432,
+    "heavy_hubert_test_macro_f1": 0.6398,
+    "accuracy_retention_percent": 95.13,
+    "macro_f1_retention_percent": 95.3,
+    "heavy_invocation_percent": 52.19,
+    "product_e2vplus_lr_test_accuracy": 0.6776
+  }
+}

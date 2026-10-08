@@ -1,0 +1,55 @@
+# SER API — canonical config.
+#
+# Every value here is stamped into the /model/version response, and the encoder/classifier
+# fields must match what nb11's verdict.json and nb19's tier1b_best_head.joblib actually contain
+# -- this file does not invent numbers, it is filled in from the frozen artifacts on Drive.
+
+encoder:
+  model_id: "iic/emotion2vec_plus_base"
+  hub: "ms"
+  generate_kwargs:
+    granularity: "utterance"
+    extract_embedding: true
+
+classifier:
+  # Path to the locked candidate's joblib bundle (scaler + clf + emotions), downloaded from
+  # Drive: state/notebook19_tier1b_iemocap/tier1b_best_head.joblib
+  artifact_path: "artifacts/tier1b_best_head.joblib"
+  expected_config: "C: acted+MELD+IEMOCAP"
+
+audio:
+  sample_rate: 16000
+  min_duration_sec: 1.0      # shorter than this, reject rather than guess
+  max_duration_sec: 120.0    # bound compute per request; raise if the device needs longer clips
+  silence_rms_threshold: 0.001   # below this RMS, treat the clip as silent and reject
+
+explainability:
+  window_sec: 5.0   # per Stage 5 finding: shorter windows (3s) classify near chance in isolation
+  # Verified in Stage 5 (SER_Stage5_Explainability_Finding.md): per-window attribution is exact
+  # ONLY when a clip is short enough to be a single window. For real multi-window clips the
+  # reconstruction error is large (measured 2.18 on a 44s real recording) -- so the API always
+  # reports attribution_exact and includes reconstruction_error, and the timeline must be
+  # presented as approximate supporting evidence, not exact arithmetic, whenever n_windows > 1.
+
+server:
+  max_upload_mb: 25
+  log_level: "info"
+  # The API serves the web page at "/" so a single URL is the whole product.
+  frontend_path: "../../ser_frontend.html"
+
+youtube:
+  # Only set this if ffmpeg is NOT already on PATH (e.g. "C:/ffmpeg/bin"). yt-dlp needs a real
+  # ffmpeg binary to extract audio from a YouTube video -- install it from ffmpeg.org and this
+  # can stay null.
+  ffmpeg_location: null
+
+adaptive:
+  # The adaptive routing demo (light MFCC branch + certified router + heavy Emotion2Vec+ branch).
+  # Additive: this does NOT replace the locked classifier above. Leave artifacts_dir null to
+  # disable the feature entirely -- the service still starts and /predict is unaffected.
+  artifacts_dir: "../../Router"
+  # Optional assertion only. 0.375 is a Learn-then-Test CERTIFIED value, not a tuning knob; the
+  # real threshold is read from Router/serving_spec.json and the service refuses to start if this
+  # disagrees with it. Changing the number here does not change the behaviour -- it needs a new
+  # calibration run.
+  threshold: 0.375

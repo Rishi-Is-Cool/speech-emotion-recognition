@@ -1,0 +1,43 @@
+# Vercel (free Hobby plan) config. Same models and numbers as the local config.yaml; only the
+# serving constraints differ: 1 vCPU, 2 GB memory, 4.5 MB request bodies, no YouTube.
+
+encoder:
+  model_id: "iic/emotion2vec_plus_base"
+  hub: "ms"
+  # Bundled weights-only copy of the encoder, verified bit-identical to the original. It ships as
+  # <100 MB parts (Vercel's per-file limit) and is rejoined + checksum-verified at cold start.
+  local_dir: "models/emotion2vec_plus_base"
+  # funasr otherwise forces 4 threads onto the single vCPU (30 s clip: 87 s -> 15 s with this).
+  ncpu: 1
+  generate_kwargs:
+    granularity: "utterance"
+    extract_embedding: true
+
+classifier:
+  artifact_path: "artifacts/tier1b_best_head.joblib"
+  expected_config: "C: acted+MELD+IEMOCAP"
+
+audio:
+  sample_rate: 16000
+  min_duration_sec: 1.0
+  # 30 s keeps an analysis around 20-40 s on one vCPU and the upload under Vercel's 4.5 MB limit.
+  max_duration_sec: 30.0
+  silence_rms_threshold: 0.001
+
+explainability:
+  window_sec: 5.0
+
+server:
+  max_upload_mb: 4
+  log_level: "info"
+  # Normally served from the CDN (public/); this is the fallback if a request reaches the function.
+  frontend_path: "public/index.html"
+
+youtube:
+  # YouTube blocks requests from cloud servers ("confirm you're not a bot"), verified on Vercel.
+  enabled: false
+  ffmpeg_location: null
+
+adaptive:
+  artifacts_dir: "Router"
+  threshold: 0.375

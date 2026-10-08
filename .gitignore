@@ -1,0 +1,20 @@
+# Allowlist: only what is meant to be public is tracked. Everything else in this folder
+# (notebooks, papers and PDFs, zips, local virtualenv, build output) stays on this machine.
+/*
+!/.gitignore
+!/README.md
+!/ser_frontend.html
+!/ser_api/
+!/Router/
+!/deploy/
+
+# never tracked, even inside the allowed folders
+ser_api/.venv/
+.pytest_cache/
+__pycache__/
+*.pyc
+deploy/out/
+Router/*.csv
+*.log
+.env
+.env.*

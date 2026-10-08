@@ -1,0 +1,17 @@
+# Pinned to the exact versions every model in this project was verified under
+# (light/router/heavy reproduce notebook 28's recorded numbers to <=1.8e-07 on these).
+# torch is installed separately in the Dockerfile from the CPU-only index.
+fastapi==0.141.1
+uvicorn==0.54.0
+python-multipart==0.0.32
+pydantic==2.13.5
+PyYAML==6.0.3
+numpy==2.5.3
+scipy==1.18.1
+numba==0.67.0
+soundfile==0.14.0
+librosa==1.0.0
+scikit-learn==1.9.1
+joblib==1.6.0
+funasr==1.4.16
+modelscope==1.40.1
