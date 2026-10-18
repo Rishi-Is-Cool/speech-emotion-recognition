@@ -40,4 +40,5 @@ youtube:
 
 adaptive:
   artifacts_dir: "Router"
-  threshold: 0.375
+  spec: "serving_spec_v2.json"
+  threshold: 0.63

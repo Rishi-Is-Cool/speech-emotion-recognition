@@ -36,12 +36,27 @@ def config() -> Config:
 
 @pytest.fixture(scope="module")
 def adaptive(config):
+    """What config.yaml serves: the v2 system (notebook 31)."""
     d = config.adaptive_artifacts_dir
-    if not d or not (d / "serving_spec.json").exists():
+    if not d or not (d / config.adaptive_spec).exists():
         pytest.skip("Router artifacts not present")
     from ser_api.adaptive import AdaptivePackage
 
     return AdaptivePackage.load(config)
+
+
+@pytest.fixture(scope="module")
+def adaptive_v1(config):
+    """The original acted-speech system (notebooks 28/29), kept on disk for rollback. The demo
+    manifest's recorded numbers belong to it, so the reproduction tests run against it."""
+    raw = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
+    raw["adaptive"].update({"spec": "serving_spec.json", "threshold": 0.375})
+    cfg = Config.from_dict(raw, base_dir=CONFIG_PATH.parent)
+    if not cfg.adaptive_artifacts_dir or not (cfg.adaptive_artifacts_dir / "serving_spec.json").exists():
+        pytest.skip("v1 Router artifacts not present")
+    from ser_api.adaptive import AdaptivePackage
+
+    return AdaptivePackage.load(cfg)
 
 
 @pytest.fixture(scope="module")
@@ -62,12 +77,13 @@ def _load_clip(adaptive, clip):
 # ---------------------------------------------------------------------------------------------
 # the assertion that actually matters: the serving path reproduces the evaluated system
 # ---------------------------------------------------------------------------------------------
-def test_light_and_router_reproduce_the_manifest(adaptive, manifest):
+def test_light_and_router_reproduce_the_manifest(adaptive_v1, manifest):
     """Every recorded light prediction, light confidence, router score and escalate/keep decision
     must come back out of this serving path. A drift here means the feature assembly is wrong --
     which is silent, because the models still return confident-looking numbers."""
     from ser_api.adaptive import asca_12, confidence_features, mfcc_72, prepare_router_audio
 
+    adaptive = adaptive_v1
     for clip in manifest["clips"]:
         y = _load_clip(adaptive, clip)
 
@@ -89,14 +105,14 @@ def test_light_and_router_reproduce_the_manifest(adaptive, manifest):
         assert (score >= adaptive.threshold) == clip["escalated"], clip["case"]
 
 
-def test_borderline_clip_stays_light_by_a_hair(adaptive, manifest):
-    """The borderline clip sits ~0.0002 under the threshold and is kept on the light branch,
+def test_borderline_clip_stays_light_by_a_hair(adaptive_v1, manifest):
+    """The borderline clip sits ~0.0002 under the v1 threshold and is kept on the light branch,
     where it is wrong. Guards against anyone 'tidying' the threshold comparison into `>` vs `>=`
     or rounding the score -- either would flip this case and quietly change the certified
     operating point."""
     clip = next(c for c in manifest["clips"] if c["case"] == "borderline")
-    assert clip["router_score_p_heavy"] < adaptive.threshold
-    assert adaptive.threshold - clip["router_score_p_heavy"] < 1e-3
+    assert clip["router_score_p_heavy"] < adaptive_v1.threshold
+    assert adaptive_v1.threshold - clip["router_score_p_heavy"] < 1e-3
     assert clip["escalated"] is False
     assert clip["final_prediction"] != clip["true_label"]
 
@@ -156,9 +172,10 @@ def test_confidence_features_are_not_scaled():
 # ---------------------------------------------------------------------------------------------
 # the cost guarantee
 # ---------------------------------------------------------------------------------------------
-def test_heavy_branch_is_not_run_when_the_router_keeps_it_light(adaptive, manifest, monkeypatch):
+def test_heavy_branch_is_not_run_when_the_router_keeps_it_light(adaptive_v1, manifest, monkeypatch):
     """The whole point of routing is not paying for the encoder. If `route()` ever calls it
-    speculatively the saving disappears, so make that an explicit failure."""
+    speculatively the saving disappears, so make that an explicit failure. (v1, because its router
+    keeps the 'easy' demo clip light; v2 escalates every acted clip.)"""
     import ser_api.adaptive as adaptive_mod
 
     def explode(*a, **k):
@@ -167,7 +184,7 @@ def test_heavy_branch_is_not_run_when_the_router_keeps_it_light(adaptive, manife
     monkeypatch.setattr(adaptive_mod, "embed_raw", explode)
 
     easy = next(c for c in manifest["clips"] if c["case"] == "easy")
-    out = adaptive_mod.route(_load_clip(adaptive, easy), 16000, adaptive, model=None)
+    out = adaptive_mod.route(_load_clip(adaptive_v1, easy), 16000, adaptive_v1, model=None)
 
     assert out["branch_used"] == "light"
     assert out["heavy_prediction"] is None
@@ -191,3 +208,100 @@ def test_threshold_must_match_the_certified_value(config, tmp_path):
 
     with pytest.raises(RuntimeError, match="certified threshold"):
         AdaptivePackage.load(tampered)
+
+
+# ---------------------------------------------------------------------------------------------
+# v2 (notebook 31): what the website serves
+# ---------------------------------------------------------------------------------------------
+def test_v2_is_the_real_voice_system_with_tier1b_as_heavy(adaptive):
+    """config.yaml serves notebook 31's system, whose heavy head is the product's main model --
+    the reason the site can show a single answer."""
+    assert adaptive.spec_name == "serving_spec_v2.json"
+    assert adaptive.threshold == pytest.approx(0.63)
+    assert adaptive.heavy_name == "tier1b_best_head.joblib"
+    assert adaptive.heavy_clf.coef_.shape == (6, 768)
+
+
+def test_v2_sends_the_acted_demo_clips_to_heavy(adaptive, manifest):
+    """Regression pin for the v2 serving path (values measured when v2 was installed): the
+    real-voice router finds all three acted demo clips worth the heavy model."""
+    from ser_api.adaptive import asca_12, confidence_features, mfcc_72, prepare_router_audio
+
+    expected = {"easy": ("sad", 0.985), "borderline": ("fear", 0.954), "hard": ("angry", 0.957)}
+    for clip in manifest["clips"]:
+        y = _load_clip(adaptive, clip)
+        probs = adaptive.light.predict_proba(adaptive.mfcc_scaler.transform(mfcc_72(y, 16000).reshape(1, -1)))[0]
+        scaled = adaptive.asca_scaler.transform(asca_12(prepare_router_audio(y, 16000), 16000).reshape(1, -1))[0]
+        score = float(adaptive.router.predict_proba(
+            np.concatenate([scaled, confidence_features(probs)]).reshape(1, -1))[0][1])
+        light, want = expected[clip["case"]]
+        assert adaptive.classes[int(np.argmax(probs))] == light, clip["case"]
+        assert score == pytest.approx(want, abs=1e-3), clip["case"]
+        assert score >= adaptive.threshold, clip["case"]
+
+
+def _fake_embed(y, sr, model):
+    """Deterministic stand-in for the 94M-parameter encoder: same samples -> same 768 numbers."""
+    import hashlib
+
+    seed = int(hashlib.sha256(np.ascontiguousarray(y).tobytes()).hexdigest(), 16) % (2**32)
+    return np.random.default_rng(seed).normal(0, 1, 768).astype(np.float32)
+
+
+def test_analyze_light_answer_never_runs_the_encoder(adaptive_v1, manifest, monkeypatch):
+    """When the router keeps a clip light, the answer AND its timeline come from the light model;
+    the encoder must not run even for the timeline."""
+    import ser_api.adaptive as adaptive_mod
+
+    monkeypatch.setattr(adaptive_mod, "embed_raw", lambda *a, **k: (_ for _ in ()).throw(
+        AssertionError("encoder ran for a light answer")))
+    easy = next(c for c in manifest["clips"] if c["case"] == "easy")
+    out = adaptive_mod.analyze(_load_clip(adaptive_v1, easy), 16000, adaptive_v1, model=None, mode="gie")
+
+    assert out["branch_used"] == "light"
+    assert out["emotion"] == out["routing"]["light_prediction"] == easy["light_prediction"]
+    tl = out["timeline"]
+    assert tl["method"] == "light_window_probability" and tl["n_windows"] == 1
+    assert tl["windows"][0]["contribution"] > 0   # the answer beats a six-way coin toss on itself
+
+
+def test_analyze_heavy_mode_skips_light_and_router(adaptive, manifest, monkeypatch):
+    """Heavy-only mode: no light model, no router, and a single-window clip's attribution is exact."""
+    import ser_api.adaptive as adaptive_mod
+
+    def explode(*a, **k):
+        raise AssertionError("light model or router ran in heavy-only mode")
+
+    monkeypatch.setattr(adaptive_mod, "embed_raw", _fake_embed)
+    monkeypatch.setattr(adaptive_mod, "mfcc_72", explode)
+    monkeypatch.setattr(adaptive_mod, "asca_12", explode)
+
+    y = _load_clip(adaptive, manifest["clips"][0])
+    out = adaptive_mod.analyze(y, 16000, adaptive, model=None, mode="heavy")
+
+    probs = adaptive.heavy_proba(_fake_embed(y, 16000, None))
+    assert out["routing"] is None and out["branch_used"] == "heavy"
+    assert out["emotion"] == adaptive.classes[int(np.argmax(probs))]
+    assert out["timeline"]["method"] == "linear"
+    assert out["timeline"]["attribution_exact"] is True
+    assert out["timeline"]["reconstruction_error"] < 1e-6
+
+
+def test_analyze_gie_escalation_returns_the_heavy_answer(adaptive, manifest, monkeypatch):
+    """With v2 an acted clip escalates; the one answer shown must be the heavy model's."""
+    import ser_api.adaptive as adaptive_mod
+
+    monkeypatch.setattr(adaptive_mod, "embed_raw", _fake_embed)
+    y = _load_clip(adaptive, manifest["clips"][0])
+    out = adaptive_mod.analyze(y, 16000, adaptive, model=None, mode="gie")
+
+    assert out["branch_used"] == "heavy"
+    assert out["emotion"] == out["routing"]["heavy_prediction"]
+    assert out["probabilities"] == {k: round(v, 4) for k, v in out["routing"]["heavy_probabilities"].items()}
+
+
+def test_analyze_rejects_unknown_mode(adaptive):
+    import ser_api.adaptive as adaptive_mod
+
+    with pytest.raises(ValueError):
+        adaptive_mod.analyze(np.zeros(16000, dtype=np.float32), 16000, adaptive, model=None, mode="fast")

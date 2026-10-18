@@ -1,0 +1,23 @@
+{
+  "source": "Transcribed from the printed output of notebook 31 (31_RealVoice_Light_Router_Retrain.ipynb, cells 8-10, run 2026-10-17). Percentages are as printed (1 dp); the disagreement rate is the exact value from serving_spec_v2.json.",
+  "evaluation": "leave-one-person-out: light model, router and threshold built without the tested person, then scored once on that person's clean clips",
+  "clips": 516,
+  "people": ["maitry", "nupoor", "rishikesh", "tanvi"],
+  "heavy_only_accuracy": 0.349,
+  "routed_accuracy": 0.341,
+  "light_answered_share": 0.314,
+  "light_alone_accuracy": 0.283,
+  "light_agrees_with_heavy": 0.196,
+  "differs_from_heavy": 0.25387596899224807,
+  "target_differs_from_heavy": 0.10,
+  "target_confidence": 0.95,
+  "old_system": {"light_answered_share": 0.0, "routed_accuracy": 0.349, "light_alone_accuracy": 0.200},
+  "per_person": [
+    {"person": "maitry", "n": 186, "threshold": 0.73, "light_answered_share": 0.032, "heavy_only_accuracy": 0.290, "routed_accuracy": 0.285},
+    {"person": "nupoor", "n": 72, "threshold": 0.70, "light_answered_share": 0.000, "heavy_only_accuracy": 0.528, "routed_accuracy": 0.528},
+    {"person": "rishikesh", "n": 75, "threshold": 0.49, "light_answered_share": 0.000, "heavy_only_accuracy": 0.440, "routed_accuracy": 0.440},
+    {"person": "tanvi", "n": 183, "threshold": 0.63, "light_answered_share": 0.852, "heavy_only_accuracy": 0.301, "routed_accuracy": 0.284}
+  ],
+  "final_threshold": 0.63,
+  "final_calibration": {"clips": 516, "light_answered_share": 0.08, "differs_from_heavy": 0.076}
+}

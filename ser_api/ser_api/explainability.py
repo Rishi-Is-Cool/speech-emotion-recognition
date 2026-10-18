@@ -76,22 +76,24 @@ class Timeline:
     explanation_text: str
 
 
-def build_timeline(y: np.ndarray, sr: int, model: ModelPackage, prediction: PredictionResult) -> Timeline:
-    pred_idx = model.classes.index(prediction.emotion)
-    w_c = model.clf.coef_[pred_idx]
-    b_c = float(model.clf.intercept_[pred_idx])
-    whole_scaled = model.scaler.transform(prediction.embedding.reshape(1, -1))
-    true_logit = float(model.clf.decision_function(whole_scaled)[0][pred_idx])
+def linear_windows(y, sr, embed_fn, scaler, clf, pred_idx, whole_embedding, window_sec):
+    """Per-window attribution for any scaler + linear head on the encoder's embedding:
+    `w_c . scaler(x_window)` for each window. Returns (windows, top_window_idx, attribution_exact,
+    reconstruction_error). `embed_fn(window_samples)` returns that window's embedding."""
+    w_c = clf.coef_[pred_idx]
+    b_c = float(clf.intercept_[pred_idx])
+    whole_scaled = scaler.transform(whole_embedding.reshape(1, -1))
+    true_logit = float(clf.decision_function(whole_scaled)[0][pred_idx])
 
-    spans = make_windows(len(y), sr, model.window_sec)
+    spans = make_windows(len(y), sr, window_sec)
 
     windows = []
     contributions = []
     weights = []
     for k, (a, b) in enumerate(spans):
         wy = y[a:b]
-        w_embed = embed_raw(wy, sr, model)
-        w_scaled = model.scaler.transform(w_embed.reshape(1, -1))[0]
+        w_embed = embed_fn(wy)
+        w_scaled = scaler.transform(w_embed.reshape(1, -1))[0]
         contribution = float(np.dot(w_c, w_scaled))
         contributions.append(contribution)
         weights.append(b - a)  # window length in samples -- the last window is usually shorter
@@ -116,6 +118,16 @@ def build_timeline(y: np.ndarray, sr: int, model: ModelPackage, prediction: Pred
     # Exact by construction only when nothing was split -- see module docstring. This is a
     # structural fact (n_windows == 1), not something that needs re-measuring per request.
     attribution_exact = len(windows) == 1
+    return windows, top_window["window_idx"], attribution_exact, reconstruction_error
+
+
+def build_timeline(y: np.ndarray, sr: int, model: ModelPackage, prediction: PredictionResult) -> Timeline:
+    pred_idx = model.classes.index(prediction.emotion)
+    windows, top_idx, attribution_exact, reconstruction_error = linear_windows(
+        y, sr, lambda wy: embed_raw(wy, sr, model), model.scaler, model.clf, pred_idx,
+        prediction.embedding, model.window_sec,
+    )
+    top_window = windows[top_idx]
 
     explanation_text = (
         f"Predicted '{prediction.emotion}' ({prediction.confidence * 100:.0f}% confidence). "
@@ -132,6 +144,6 @@ def build_timeline(y: np.ndarray, sr: int, model: ModelPackage, prediction: Pred
         attribution_exact=attribution_exact,
         reconstruction_error=reconstruction_error,
         windows=windows,
-        top_window_idx=top_window["window_idx"],
+        top_window_idx=top_idx,
         explanation_text=explanation_text,
     )

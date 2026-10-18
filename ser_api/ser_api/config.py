@@ -45,6 +45,7 @@ class Config:
     frontend_path: Path | None
     adaptive_artifacts_dir: Path | None
     adaptive_threshold: float | None
+    adaptive_spec: str
     raw: dict  # the full parsed YAML, for anything not promoted to a typed field
 
     @classmethod
@@ -103,5 +104,6 @@ class Config:
             adaptive_threshold=(
                 float(adaptive["threshold"]) if adaptive.get("threshold") is not None else None
             ),
+            adaptive_spec=str(adaptive.get("spec") or "serving_spec.json"),
             raw=raw,
         )

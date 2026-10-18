@@ -44,12 +44,15 @@ youtube:
   ffmpeg_location: null
 
 adaptive:
-  # The adaptive routing demo (light MFCC branch + certified router + heavy Emotion2Vec+ branch).
-  # Additive: this does NOT replace the locked classifier above. Leave artifacts_dir null to
-  # disable the feature entirely -- the service still starts and /predict is unaffected.
+  # Green Inference Engine: light MFCC model -> router -> heavy model only when escalated.
+  # Leave artifacts_dir null to disable it entirely -- the service still starts and /predict is
+  # unaffected.
   artifacts_dir: "../../Router"
-  # Optional assertion only. 0.375 is a Learn-then-Test CERTIFIED value, not a tuning knob; the
-  # real threshold is read from Router/serving_spec.json and the service refuses to start if this
-  # disagrees with it. Changing the number here does not change the behaviour -- it needs a new
-  # calibration run.
-  threshold: 0.375
+  # Which serving spec to load. It names the light model, scalers, router, threshold and heavy head.
+  #   serving_spec_v2.json : notebook 31 -- light + router retrained on real voices, heavy = tier1b
+  #   serving_spec.json    : notebook 28/29 -- the original acted-speech system (kept for rollback)
+  spec: "serving_spec_v2.json"
+  # Optional assertion only. The real threshold is read from the spec, which got it from a
+  # Learn-then-Test run; the service refuses to start if this disagrees with it. Changing the number
+  # here does not change the behaviour -- it needs a new calibration run.
+  threshold: 0.63

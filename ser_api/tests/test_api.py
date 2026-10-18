@@ -315,6 +315,24 @@ def test_predict_youtube_happy_path(client, monkeypatch):
     assert abs(len(y) / sr - 3.0) < 0.1
 
 
+def test_youtube_audio_only_fetches(client, monkeypatch):
+    """/youtube/audio hands back the WAV for the page to analyse like a recording -- no model runs."""
+    _install_mock_ytdlp(monkeypatch, duration=2.0, emotion="sad", title="a sad clip")
+    r = client.post("/youtube/audio", json={"url": "https://youtu.be/abc123"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["source"]["title"] == "a sad clip"
+    assert "emotion" not in body
+    y, sr = sf.read(io.BytesIO(base64.b64decode(body["audio_base64"])), dtype="float32")
+    assert sr == SR and abs(len(y) / sr - 2.0) < 0.1
+
+
+def test_analyze_needs_the_routing_models(client):
+    """The fixture config has no Router artifacts: /analyze must say so, not crash."""
+    r = client.post("/analyze", files={"file": ("clip.wav", _wav_bytes(_tone(2.0, "happy")), "audio/wav")})
+    assert r.status_code == 503
+
+
 def test_predict_youtube_rejects_non_youtube_url(client):
     # No mock installed -- _check_url() must reject this before ever calling yt-dlp.
     r = client.post("/predict/youtube", json={"url": "https://example.com/video.mp4"})

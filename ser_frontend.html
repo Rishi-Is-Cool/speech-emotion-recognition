@@ -393,27 +393,44 @@
   .stat-k { font-size: 13px; color: var(--ink-muted); margin-top: 8px; line-height: 1.5; }
 
   /* ---------- adaptive routing pipeline ---------- */
-  .pipe { display: grid; gap: 0; margin-top: 4px; }
-  .stage {
-    border: 1px solid var(--border); border-radius: 14px; background: var(--surface); padding: 16px 18px;
-    position: relative; opacity: .42; transition: opacity .35s, border-color .35s, background .35s, box-shadow .35s;
+  /* A vertical progress tracker: numbered dots on a rail that fills in as the clip moves through.
+     Each step always shows a one-line description, and its live details open in a card beneath it.
+     The .link elements between steps are the rail segments: .flow fills them, .cut dashes them. */
+  .pipe { display: grid; gap: 0; margin-top: 6px; max-width: 880px; }
+  .stage { position: relative; padding: 0 0 4px 50px; min-height: 40px; opacity: .8; transition: opacity .35s; }
+  .stage::before { content: ""; position: absolute; left: 15px; top: 34px; bottom: 0; width: 2px; background: var(--gridline); transition: background .35s; }
+  .stage:last-child::before { display: none; }
+  .stage.active, .stage.done { opacity: 1; }
+  .stage.done::before { background: var(--ink); }
+  .stage.skipped { opacity: .5; }
+  .stage.skipped::before { background: repeating-linear-gradient(var(--baseline) 0 4px, transparent 4px 8px); }
+  .stage-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding-top: 6px; }
+  .stage-n {
+    position: absolute; left: 0; top: 0; width: 32px; height: 32px; border-radius: 50%;
+    border: 1.5px solid var(--baseline); background: var(--page); display: grid; place-items: center;
+    font-family: var(--f-mono); font-size: 11.5px; font-weight: 700; color: var(--ink-muted);
+    transition: background .3s, border-color .3s, color .3s;
   }
-  .stage.active  { opacity: 1; border-color: var(--ink); box-shadow: var(--shadow); }
-  .stage.done    { opacity: 1; }
-  .stage.skipped { opacity: .4; border-style: dashed; }
-  .stage-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .stage-n { width: 26px; height: 26px; border-radius: 50%; flex: none; border: 1.5px solid var(--border); display: grid; place-items: center; font-family: var(--f-mono); font-size: 11px; font-weight: 700; color: var(--ink-muted); }
-  .stage.active .stage-n, .stage.done .stage-n { border-color: var(--ink); color: var(--ink); }
-  .stage.done .stage-n { background: var(--ink); color: var(--page); }
-  .stage-title { font-family: var(--f-display); font-size: 15px; font-weight: 720; letter-spacing: -.01em; }
+  .stage.active .stage-n { border-color: var(--ink); color: var(--ink); animation: ring 1.4s ease-out infinite; }
+  .stage.done .stage-n { background: var(--ink); border-color: var(--ink); color: var(--page); animation: none; }
+  .stage.skipped .stage-n { border-style: dashed; }
+  @keyframes ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ink) 28%, transparent); } 100% { box-shadow: 0 0 0 9px transparent; } }
+  .stage-title { font-family: var(--f-display); font-size: 15.5px; font-weight: 720; letter-spacing: -.01em; }
   .stage-cost { margin-left: auto; font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .03em; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
-  .stage-body { margin-top: 12px; font-size: 14px; color: var(--ink-2); }
+  .stage-desc { flex-basis: 100%; font-size: 13.5px; color: var(--ink-muted); line-height: 1.45; }
+  .stage-body {
+    margin-top: 10px; font-size: 14px; color: var(--ink-2);
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px;
+    transition: border-color .35s, box-shadow .35s;
+  }
+  .stage.active .stage-body { border-color: var(--ink); box-shadow: var(--shadow); }
   .stage-body:empty { display: none; }
-  .link { height: 22px; position: relative; }
-  .link::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1.5px; background: var(--baseline); transform: translateX(-50%); }
-  .link.flow::after { content: ""; position: absolute; left: 50%; top: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--ink); transform: translateX(-50%); animation: travel .75s ease-in-out; }
-  .link.cut::before { background: repeating-linear-gradient(var(--div-neg) 0 3px, transparent 3px 6px); }
-  @keyframes travel { from { top: -4px; opacity: 0; } 20% { opacity: 1; } to { top: 20px; opacity: 0; } }
+  .link { height: 16px; position: relative; }
+  .link::before { content: ""; position: absolute; left: 15px; top: 0; bottom: 0; width: 2px; background: var(--gridline); transition: background .35s; }
+  .link.flow::before { background: var(--ink); }
+  .link.flow::after { content: ""; position: absolute; left: 12px; top: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--ink); animation: travel .75s ease-in-out; }
+  .link.cut::before { background: repeating-linear-gradient(var(--baseline) 0 4px, transparent 4px 8px); }
+  @keyframes travel { from { top: -6px; opacity: 0; } 20% { opacity: 1; } to { top: 14px; opacity: 0; } }
 
   .gauge { margin-top: 16px; }
   .gauge-track { position: relative; height: 32px; border-radius: 8px; overflow: visible; background: var(--zero-gray); }
@@ -458,6 +475,51 @@
   .hidden { display: none !important; }
   .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--ink); border-radius: 50%; animation: sp .7s linear infinite; vertical-align: -1px; margin-right: 8px; flex: none; }
   @keyframes sp { to { transform: rotate(360deg); } }
+
+  /* ---------- model choice (Analyze) ---------- */
+  .mode-wrap { margin-top: 22px; }
+  .mode-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .mode-opt {
+    height: auto; display: block; text-align: left; white-space: normal; padding: 14px 16px; border-radius: 14px;
+    border: 1px solid var(--border); background: var(--surface); font-weight: 400; color: var(--ink-2); font-size: 13.5px; line-height: 1.45;
+  }
+  .mode-opt b { display: block; font-family: var(--f-display); font-size: 16px; font-weight: 750; letter-spacing: -.01em; color: var(--ink); margin: 3px 0 4px; }
+  .mode-opt .mode-k { font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); font-weight: 600; }
+  .mode-opt[aria-checked="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); color: var(--ink); }
+  .mode-opt[aria-checked="true"] .mode-k { color: var(--ink); }
+  .mode-opt[aria-checked="true"] .mode-k::before { content: "● "; }
+
+  /* ---------- verdict extras ---------- */
+  .verdict-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+  .verdict-actions .play-btn { margin-top: 0; }
+  .speak-btn.speaking { background: var(--ink); color: var(--page); border-color: var(--ink); }
+  .decided { margin-top: 14px; font-family: var(--f-mono); font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-2); }
+  .decided b { color: var(--ink); }
+
+  /* ---------- models table (Method) ---------- */
+  table.models { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.models th, table.models td { text-align: left; vertical-align: top; padding: 11px 12px 11px 0; border-bottom: 1px solid var(--gridline); }
+  table.models tr:last-child td { border-bottom: none; }
+  table.models th { font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); font-weight: 600; }
+  table.models td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  table.models td b { font-family: var(--f-display); font-weight: 750; }
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* ---------- team ---------- */
+  .avatar, .mono-av { width: 64px; height: 64px; border-radius: 50%; flex: none; margin-bottom: 14px; }
+  .avatar { object-fit: cover; background: var(--wash); border: 1px solid var(--border); display: block; }
+  .mono-av {
+    display: grid; place-items: center; background: var(--ink); color: var(--page);
+    font-family: var(--f-display); font-weight: 800; font-size: 20px; letter-spacing: -.02em;
+  }
+  .member h3 { font-size: 18px; margin: 0; }
+  .member .handle { font-family: var(--f-mono); font-size: 12px; color: var(--ink-2); text-decoration: none; display: inline-block; margin-top: 4px; }
+  .member .handle:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+  .member ul { list-style: none; margin: 14px 0 0; padding: 0; font-size: 14px; color: var(--ink-2); }
+  .member li { padding: 7px 0; border-top: 1px solid var(--gridline); }
+  .guide { display: flex; gap: 18px; align-items: center; }
+  .guide .mono-av { margin: 0; }
+  .project-title { font-family: var(--f-display); font-size: clamp(20px, 2.4vw, 26px); font-weight: 750; letter-spacing: -.02em; line-height: 1.25; margin: 0; }
 
   /* =====================================================================================
      Responsive. Breakpoints step the header down before anything can overflow, and every
@@ -507,6 +569,8 @@
     .grow { min-width: 100%; }
     .hero-stats { gap: 18px 0; }
     .hero-stat { flex: 1 1 33%; padding: 0 12px; }
+    .mode-pick { grid-template-columns: 1fr; }
+    .verdict-actions > button { flex: 1 1 100%; }
     .bar-row { grid-template-columns: 64px 1fr 48px; gap: 10px; }
     .tl-track { height: 150px; }
     .stage-cost { margin-left: 0; width: 100%; order: 3; }
@@ -554,6 +618,7 @@
       <a href="#/routing">Routing</a>
       <a href="#/collect">Contribute</a>
       <a href="#/method">Method</a>
+      <a href="#/team">Team</a>
       <button class="nav-theme" id="themeBtnMenu" type="button">Switch light / dark</button>
     </nav>
     <div class="topbar-tools">
@@ -574,25 +639,25 @@
       <span class="eyebrow">Speech emotion recognition · open research demo</span>
       <h1>Hear what a voice is feeling.</h1>
       <p class="lede">
-        Record half a minute of speech. The model estimates which of six emotions it carries, then
-        shows you exactly which moments drove that answer, so you can judge the result instead of
-        taking it on trust.
+        Record half a minute of speech. A light model listens first and calls the heavy model only
+        when your clip needs it. You get one answer, the moments that drove it, and a spoken
+        explanation of why.
       </p>
       <div class="hero-ctas">
         <a href="#/analyze"><button class="primary lg">Analyze your voice &rarr;</button></a>
-        <a href="#/routing"><button class="lg">Watch the routing demo</button></a>
+        <a href="#/routing"><button class="lg">See how routing works</button></a>
       </div>
       <div class="wave" id="heroWave" aria-hidden="true"></div>
       <div class="hero-stats">
         <div class="hero-stat"><b>6</b><span>emotions it can tell apart</span></div>
-        <div class="hero-stat"><b>33%</b><span>accuracy on real voices &middot; chance is 17%</span></div>
+        <div class="hero-stat"><b>35%</b><span>accuracy on real voices &middot; chance is 17%</span></div>
         <div class="hero-stat"><b>0</b><span>recordings stored</span></div>
       </div>
     </div>
 
     <div class="section">
       <h2>How a run works</h2>
-      <p class="sub" style="margin-bottom:18px;">Three steps. Your audio is sent to the analysis server, processed in memory and discarded. Nothing is kept.</p>
+      <p class="sub" style="margin-bottom:18px;">Four steps. Your audio is sent to the analysis server, processed in memory and discarded. Nothing is kept.</p>
       <div class="steps panel">
         <div class="step">
           <div>
@@ -603,16 +668,23 @@
         </div>
         <div class="step">
           <div>
-            <h3>The model listens</h3>
-            <p class="sub" style="margin:0;">Emotion2Vec+ turns the clip into a 768-dimension embedding;
-            a locked linear classifier turns that into six probabilities.</p>
+            <h3>The light model listens first</h3>
+            <p class="sub" style="margin:0;">An MFCC model hears the whole clip in milliseconds. A router reads
+            the opening seconds and the light model's confidence, and decides whether that answer can stand.</p>
           </div>
         </div>
         <div class="step">
           <div>
-            <h3>You check its reasoning</h3>
-            <p class="sub" style="margin:0;">The timeline splits the clip into five-second windows and
-            shows which ones pushed toward the answer and which pushed against it. Click any window to hear it.</p>
+            <h3>The heavy model steps in when needed</h3>
+            <p class="sub" style="margin:0;">Emotion2Vec+, a 94-million-parameter speech encoder, analyses the
+            clip only when the router escalates. Or pick <b>Heavy model only</b> to always use it.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div>
+            <h3>You hear why</h3>
+            <p class="sub" style="margin:0;">The timeline shows which five-second stretches pushed toward the
+            answer and which pushed against it, and the page can read its reasoning out loud.</p>
           </div>
         </div>
       </div>
@@ -623,19 +695,19 @@
       <div class="grid-2" style="margin-top:14px;">
         <div class="panel">
           <h3>It is right about one time in three</h3>
-          <p class="sub" style="margin:0;">Measured at roughly 33% on real voices across six emotions.
-          Better than the 17% you would get guessing, nowhere near good enough to decide anything that
+          <p class="sub" style="margin:0;">Measured at 35% on 516 real recordings from four people, across six
+          emotions. Better than the 17% you'd get by guessing, nowhere near good enough to decide anything that
           matters about a person.</p>
         </div>
         <div class="panel">
           <h3>Confidence is not correctness</h3>
-          <p class="sub" style="margin:0;">A 90% score means the classifier found the clip unambiguous,
+          <p class="sub" style="margin:0;">A 90% score means the model found the clip unambiguous,
           not that it is right. Read the confidence badge and the timeline together.</p>
         </div>
         <div class="panel">
-          <h3>Long clips get approximate evidence</h3>
-          <p class="sub" style="margin:0;">Anything past one window is split up, and the per-window
-          numbers stop being the classifier's exact arithmetic. The app says so every time this happens.</p>
+          <h3>Two models, one answer</h3>
+          <p class="sub" style="margin:0;">Each recording is answered by either the light model or the heavy
+          model, never both. The page always tells you which one answered.</p>
         </div>
         <div class="panel">
           <h3>It is not a diagnosis</h3>
@@ -651,8 +723,8 @@
     <div class="page-head">
       <span class="eyebrow">Analyze</span>
       <h1>Run a recording</h1>
-      <p class="lede">Pick a source, then analyze. Results appear below with a per-window breakdown
-      you can play back.</p>
+      <p class="lede">Record or upload, choose a model, then analyze. You get one answer, the moments
+      behind it, and an explanation you can listen to.</p>
     </div>
 
     <div class="panel">
@@ -703,6 +775,22 @@
         </p>
       </div>
 
+      <div class="mode-wrap">
+        <label class="field" id="modeLabel">Model</label>
+        <div class="mode-pick" role="radiogroup" aria-labelledby="modeLabel">
+          <button type="button" class="mode-opt" role="radio" data-mode="gie" aria-checked="true">
+            <span class="mode-k">Adaptive routing</span>
+            <b>Green Inference Engine</b>
+            The light model answers first; the router calls the heavy model only when your clip needs it.
+          </button>
+          <button type="button" class="mode-opt" role="radio" data-mode="heavy" aria-checked="false">
+            <span class="mode-k">No routing</span>
+            <b>Heavy model only</b>
+            Emotion2Vec+ analyses every clip. The light model and router are skipped.
+          </button>
+        </div>
+      </div>
+
       <div class="clipstrip hidden" id="clipStrip">
         <span class="meta" id="clipInfo"></span>
         <button class="primary" id="analyzeBtn" style="margin-left:auto;">Analyze recording</button>
@@ -724,18 +812,15 @@
 
     <div id="errorSlot" class="hidden" style="margin-top:16px;"></div>
 
-    <!-- live adaptive routing: starts the moment you click Analyze, before the headline result is ready -->
+    <!-- how the answer was reached: starts the moment you click Analyze -->
     <div class="section live-wrap hidden" id="liveRouting" style="margin-top:36px;">
       <div class="panel">
         <div class="panel-head">
-          <h2>Which model decided — live</h2>
-          <span class="fine">adaptive routing</span>
+          <h2>How the answer was reached</h2>
+          <span class="fine" id="liveModeName">Green Inference Engine</span>
         </div>
-        <p class="sub" style="margin-top:-6px;">A cheap model always listens first. A calibrated router
-        then decides whether this recording is worth paying for the expensive one.</p>
-        <div class="note info live-compare" id="liveCompare"></div>
+        <p class="sub" id="liveSub" style="margin-top:-6px;"></p>
         <div class="pipe" id="liveRoutingPipe"></div>
-        <div id="liveNotes" style="margin-top:14px;"></div>
       </div>
     </div>
 
@@ -754,7 +839,11 @@
               <span class="fine">confidence</span>
               <span class="badge" id="rBadge"></span>
             </div>
-            <button id="playAllBtn" class="play-btn" type="button">&#9654; Hear your recording</button>
+            <div class="decided" id="rDecided"></div>
+            <div class="verdict-actions">
+              <button id="speakBtn" class="speak-btn" type="button">&#128264; Hear why</button>
+              <button id="playAllBtn" class="play-btn" type="button">&#9654; Hear your recording</button>
+            </div>
             <p class="summary-line" id="rSummary"></p>
           </div>
           <dl class="verdict-aside" id="rMeta"></dl>
@@ -791,26 +880,17 @@
         </div>
       </div>
 
-      <div class="section" id="warnSlot"></div>
-
-      <div class="section">
-        <div class="note">
-          <b>Accuracy:</b> this model is measured at about <b>33% accuracy</b> on real voices across six
-          emotions. Treat every prediction here as a rough signal, not a diagnosis — read it together
-          with the confidence score and the timeline, never on its own.
-        </div>
-      </div>
     </div>
   </section>
 
   <!-- ============ ADAPTIVE ROUTING ============ -->
   <section class="route" data-route="/routing">
     <div class="page-head">
-      <span class="eyebrow">Adaptive routing</span>
-      <h1>Spend the expensive model only where it pays</h1>
-      <p class="lede">A cheap model listens to every recording. A calibrated router then decides
-      whether that answer is trustworthy enough to keep — or whether this particular clip is worth
-      paying ~24× more compute to run the heavy model. Watch it decide.</p>
+      <span class="eyebrow">Green Inference Engine</span>
+      <h1>Spend the heavy model only where it pays</h1>
+      <p class="lede">A light model listens to every recording. A router, trained on real voices,
+      predicts whether the light answer would match the heavy model's. If not, the clip is
+      worth ~24× more compute, and the heavy model answers instead. Watch it decide.</p>
     </div>
 
     <div id="routingUnavailable" class="note err hidden" style="margin-bottom:24px;"></div>
@@ -822,6 +902,10 @@
             <h2>Pick a recording</h2>
             <span class="fine counter" id="invCounter"></span>
           </div>
+          <p class="sub" style="margin-top:-6px;">Three acted clips from public datasets, with known labels.
+          Acted speech is exaggerated and studio-clean, which is unlike the real voices this router learned
+          from, so it sends all three to the heavy model. For a clip that stays light, try your own voice
+          on <a class="link" href="#/analyze">Analyze</a>.</p>
           <div class="case-tabs" id="caseTabs"></div>
           <div class="row" style="margin-top:16px;">
             <button class="primary" id="runRouting">Run it</button>
@@ -832,73 +916,14 @@
       </div>
 
       <div class="section">
-        <div class="pipe">
-          <div class="stage" id="st-audio">
-            <div class="stage-head">
-              <span class="stage-n">1</span><span class="stage-title">Audio in</span>
-              <span class="stage-cost" id="cost-audio"></span>
-            </div>
-            <div class="stage-body" id="body-audio"></div>
-          </div>
-
-          <div class="link" id="lk-1"></div>
-
-          <div class="stage" id="st-light">
-            <div class="stage-head">
-              <span class="stage-n">2</span><span class="stage-title">Light branch — MFCC + small MLP</span>
-              <span class="stage-cost" id="cost-light"></span>
-            </div>
-            <div class="stage-body" id="body-light"></div>
-          </div>
-
-          <div class="link" id="lk-2"></div>
-
-          <div class="stage" id="st-router">
-            <div class="stage-head">
-              <span class="stage-n">3</span><span class="stage-title">Router — is this worth escalating?</span>
-              <span class="stage-cost" id="cost-router"></span>
-            </div>
-            <div class="stage-body" id="body-router"></div>
-          </div>
-
-          <div class="link" id="lk-3"></div>
-
-          <div class="stage" id="st-heavy">
-            <div class="stage-head">
-              <span class="stage-n">4</span><span class="stage-title">Heavy branch — Emotion2Vec+</span>
-              <span class="stage-cost" id="cost-heavy"></span>
-            </div>
-            <div class="stage-body" id="body-heavy"></div>
-          </div>
-
-          <div class="link" id="lk-4"></div>
-
-          <div class="stage" id="st-final">
-            <div class="stage-head">
-              <span class="stage-n">5</span><span class="stage-title">Final answer</span>
-              <span class="stage-cost" id="cost-final"></span>
-            </div>
-            <div class="stage-body" id="body-final"></div>
-          </div>
-        </div>
+        <div class="pipe" id="demoPipe"></div>
       </div>
 
       <div class="section">
         <h2>What this buys</h2>
+        <p class="sub" id="routingStatsSrc"></p>
         <div class="grid-3" id="routingStats" style="margin-top:14px;"></div>
         <p class="fine" id="routingCaveats" style="margin-top:14px;"></p>
-      </div>
-
-      <div class="section">
-        <div class="note">
-          <b>These are acted-corpus numbers.</b> <span id="corpusCaveat"></span>
-        </div>
-        <div class="note" style="margin-top:10px;">
-          <b>The router only hears the first 3 seconds.</b> That is a placeholder, not a validated
-          choice — the system was only ever evaluated on clips where the first 3 seconds <em>were</em>
-          the whole clip. Whether routing a 30–60s recording on its opening behaves the same way is
-          unchecked.
-        </div>
       </div>
     </div>
   </section>
@@ -965,8 +990,8 @@
     <div class="page-head">
       <span class="eyebrow">Method</span>
       <h1>How the answer is produced</h1>
-      <p class="lede">The whole pipeline, the numbers behind it, and an honest account of what it
-      cannot do.</p>
+      <p class="lede">The whole pipeline, the two models behind it, the numbers, and an honest account
+      of what it cannot do.</p>
     </div>
 
     <div class="section">
@@ -974,52 +999,149 @@
       <div class="steps panel" style="margin-top:14px;">
         <div class="step"><div>
           <h3>Conform the audio</h3>
-          <p class="sub" style="margin:0;">Downmixed to mono and resampled to 16 kHz. No denoising, no
-          voice-activity trimming, no normalisation — the model sees the recording as it was made.</p>
+          <p class="sub" style="margin:0;">Downmixed to mono and resampled to 16 kHz. Nothing else: no
+          denoising, trimming or normalisation, so the models hear the recording as it was made.</p>
         </div></div>
         <div class="step"><div>
-          <h3>Embed with Emotion2Vec+</h3>
-          <p class="sub" style="margin:0;">The whole clip becomes one 768-dimension utterance embedding.
-          The encoder is frozen; nothing about it was fine-tuned here.</p>
+          <h3>Light model</h3>
+          <p class="sub" style="margin:0;">13 MFCCs plus their deltas and delta-deltas (coefficient 0
+          dropped), averaged over the whole clip into 72 numbers, then a small neural network
+          (72 → 256 → 128 → 6).</p>
         </div></div>
         <div class="step"><div>
-          <h3>Classify</h3>
-          <p class="sub" style="margin:0;">A standard-scaled logistic regression maps that embedding to six
-          probabilities. Deliberately linear — it is what makes the per-window attribution below meaningful.</p>
+          <h3>Router (ASCA)</h3>
+          <p class="sub" style="margin:0;">Twelve acoustic complexity features from the opening three
+          seconds (SNR, energy, spectral shape, flux, entropy, MFCC statistics) plus the light model's own
+          confidence: fifteen numbers into a logistic regression. It escalates when P(needs heavy) ≥
+          <span class="thr-text">0.63</span>.</p>
         </div></div>
         <div class="step"><div>
-          <h3>Attribute along the timeline</h3>
-          <p class="sub" style="margin:0;">The clip is cut into five-second windows, each embedded and
-          scored on its own, and each window's push toward the winning class is reported.</p>
+          <h3>Heavy model</h3>
+          <p class="sub" style="margin:0;">Emotion2Vec+ turns the clip into a 768-number embedding; a
+          standard-scaled logistic regression turns that into six probabilities. It runs only on escalation,
+          or always in Heavy-only mode.</p>
+        </div></div>
+        <div class="step"><div>
+          <h3>Explain the answer</h3>
+          <p class="sub" style="margin:0;">The clip is cut into five-second windows. For the heavy model each
+          window's push toward the answer is linear arithmetic on its own embedding; for the light model each
+          window is scored by the light model on its own. Pitch and loudness come from signal processing,
+          not the model.</p>
         </div></div>
       </div>
     </div>
 
     <div class="section">
-      <h2>Loaded model</h2>
-      <div class="panel" style="margin-top:14px;">
-        <dl id="modelCard" class="sub" style="margin:0;">
-          <div class="kv"><dt>Status</dt><dd>not checked yet</dd></div>
-        </dl>
+      <h2>The two models and the router</h2>
+      <p class="sub">Sizes from the saved files. Accuracy is on real voices from people the models never trained on.</p>
+      <div class="panel table-scroll" style="margin-top:14px;">
+        <table class="models">
+          <thead><tr><th>Part</th><th>What it is</th><th>Size</th><th>Real-voice accuracy</th></tr></thead>
+          <tbody>
+            <tr><td><b>Light</b></td><td>MFCC (72) → MLP 256-128. Trained on 5,805 acted clips plus real
+              voices with fan, chatter, echo and phone-line copies, to copy the heavy model's answers.</td>
+              <td class="num">52,358 params</td><td class="num">28.3% alone</td></tr>
+            <tr><td><b>Router</b></td><td>Logistic regression on 15 features. Learns "will the light answer
+              match the heavy one?" Threshold set with Learn-then-Test on 516 real clips.</td>
+              <td class="num">16 params</td><td class="num">—</td></tr>
+            <tr><td><b>Heavy</b></td><td>Emotion2Vec+ base (frozen, 94M params) + logistic regression trained
+              on acted speech, MELD and IEMOCAP.</td><td class="num">94M + 4,614</td><td class="num">34.9%</td></tr>
+            <tr><td><b>Routed</b></td><td>Green Inference Engine end to end.</td><td class="num">—</td>
+              <td class="num">34.1%</td></tr>
+          </tbody>
+        </table>
       </div>
+      <p class="fine" style="margin-top:12px;">Leave-one-person-out on 516 clean recordings from four people
+      (notebook 31). Chance is 16.7%.</p>
     </div>
 
     <div class="section">
       <h2>Known limits</h2>
       <div class="panel" style="margin-top:14px;">
-        <h3>Per-window numbers are approximate on long clips</h3>
-        <p class="sub">Attribution is exact only when a clip fits inside a single window. Past that,
-          re-embedding each window separately does not perfectly reconstruct the whole-clip embedding —
-          measured reconstruction error 2.18 on a real 44-second recording. Whenever that happens the
-          result carries a warning saying so, and the right reading of the bars is
-          <em>supporting evidence</em>, never exact arithmetic.</p>
-        <h3 style="margin-top:18px;">Trained on acted speech, used on real speech</h3>
-        <p class="sub">Much of the training material is performed emotion. Real conversational speech is
-          flatter and more ambiguous, which is most of the gap between benchmark numbers and the 33%
-          measured here.</p>
+        <h3>Routing saves compute, not accuracy</h3>
+        <p class="sub">On new people the light model answered 31% of clips, with accuracy 34.1% against 34.9%
+          for the heavy model alone. The target was for the final answer to match the heavy model's on at least
+          90% of clips; on new people it matched on 75%. Four people is a small sample.</p>
+        <h3 style="margin-top:18px;">Trained mostly on acted speech</h3>
+        <p class="sub">Much of the training material is performed emotion. Real conversation is flatter and more
+          ambiguous, which is most of the gap between benchmark numbers and real-voice results.</p>
+        <h3 style="margin-top:18px;">Long clips get approximate evidence</h3>
+        <p class="sub">A window is re-analysed on its own, without the context around it, so on clips longer than
+          five seconds the per-window bars are supporting evidence rather than exact arithmetic.</p>
         <h3 style="margin-top:18px;">Six boxes for something that is not six boxes</h3>
         <p class="sub" style="margin:0;">Real speech carries blends, sarcasm, and no emotion at all. Forcing
           every clip into one of six labels throws that away by construction.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TEAM ============ -->
+  <section class="route" data-route="/team">
+    <div class="page-head">
+      <span class="eyebrow">Team</span>
+      <h1>The people behind it</h1>
+      <p class="lede">A final-year project built by three students with their project guide.</p>
+    </div>
+
+    <div class="section">
+      <div class="panel">
+        <span class="eyebrow">Project</span>
+        <p class="project-title" style="margin-top:10px;">Adaptive, Efficient and Explainable Audio-Only Speech
+        Emotion Recognition using Green Inference and Audible Saliency</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Built by</h2>
+      <div class="grid-3" style="margin-top:14px;">
+        <div class="panel member">
+          <img class="avatar" src="https://github.com/Rishi-Is-Cool.png?size=128" alt="Rishikesh Patil's GitHub profile picture"
+               width="64" height="64" loading="lazy" referrerpolicy="no-referrer" data-initials="RP" />
+          <h3>Rishikesh Patil</h3>
+          <a class="handle" href="https://github.com/Rishi-Is-Cool" target="_blank" rel="noopener">@Rishi-Is-Cool</a>
+          <ul>
+            <li>Website design and build</li>
+            <li>Heavy model (Emotion2Vec+ branch)</li>
+            <li>Research: adaptive routing (Green Inference Engine)</li>
+            <li>Hardware</li>
+            <li>Deployment, debugging and fixing errors across the project</li>
+          </ul>
+        </div>
+        <div class="panel member">
+          <img class="avatar" src="https://github.com/maitry-mohite.png?size=128" alt="Maitry Mahesh Mohite's GitHub profile picture"
+               width="64" height="64" loading="lazy" referrerpolicy="no-referrer" data-initials="MM" />
+          <h3>Maitry Mahesh Mohite</h3>
+          <a class="handle" href="https://github.com/maitry-mohite" target="_blank" rel="noopener">@maitry-mohite</a>
+          <ul>
+            <li>Data collection</li>
+            <li>Preprocessing</li>
+            <li>Research: HuBERT layer-wise representations and CKA</li>
+            <li>Hardware</li>
+          </ul>
+        </div>
+        <div class="panel member">
+          <img class="avatar" src="https://github.com/tanviyerram08.png?size=128" alt="Tanvi Yerram's GitHub profile picture"
+               width="64" height="64" loading="lazy" referrerpolicy="no-referrer" data-initials="TY" />
+          <h3>Tanvi Yerram</h3>
+          <a class="handle" href="https://github.com/tanviyerram08" target="_blank" rel="noopener">@tanviyerram08</a>
+          <ul>
+            <li>Preprocessing</li>
+            <li>Research: acoustic explainability</li>
+            <li>Hardware</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Guided by</h2>
+      <div class="panel guide" style="margin-top:14px;">
+        <div class="mono-av" aria-hidden="true">SP</div>
+        <div>
+          <h3 style="font-size:18px;margin:0;">Dr. Sheetal Patil</h3>
+          <p class="sub" style="margin:4px 0 0;">Project guide. Research guidance throughout the project, and
+          helped build the real-voice dataset.</p>
+        </div>
       </div>
     </div>
   </section>
@@ -1042,12 +1164,13 @@
     <div>
       <h4>Understand it</h4>
       <a href="#/method">Method and limits</a>
+      <a href="#/team">Team</a>
       <a href="#/">Overview</a>
     </div>
   </div>
   <div class="footer-base">
     <span>Audio is processed in memory and discarded. Nothing is stored.</span>
-    <span id="footVersion">&mdash;</span>
+    <span id="footVersion">Green Inference Engine</span>
   </div>
 </footer>
 
@@ -1082,9 +1205,10 @@
   const ROUTES = {
     "/":        "Overview · Speech Emotion Recognition",
     "/analyze": "Analyze · Speech Emotion Recognition",
-    "/routing": "Adaptive routing · Speech Emotion Recognition",
+    "/routing": "Green Inference · Speech Emotion Recognition",
     "/collect": "Contribute · Speech Emotion Recognition",
     "/method":  "Method · Speech Emotion Recognition",
+    "/team":    "Team · Speech Emotion Recognition",
   };
   function currentRoute() {
     const h = decodeURIComponent(location.hash.replace(/^#/, "")) || "/";
@@ -1104,7 +1228,7 @@
     $("mainNav").classList.remove("open");
     $("menuBtn").setAttribute("aria-expanded", "false");
     window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
-    if (route === "/method") refreshModelCard();
+    stopSpeaking();
     if (route === "/routing") loadRoutingInfo();
   }
   window.addEventListener("hashchange", renderRoute);
@@ -1381,7 +1505,6 @@
       await sleep(6000);
       if (await checkConnection(true)) {
         if (currentRoute() === "/routing") loadRoutingInfo();
-        if (currentRoute() === "/method") refreshModelCard();
         return true;
       }
     }
@@ -1392,52 +1515,31 @@
   $("connBtn").addEventListener("click", () => checkConnection(false));
   $("checkConn").addEventListener("click", () => checkConnection(false));
 
-  async function refreshModelCard() {
-    const dl = $("modelCard");
-    try {
-      const resp = await fetch(apiBase() + "/model/version");
-      const m = await resp.json();
-      dl.innerHTML = `
-        <div class="kv"><dt>Model version</dt><dd>${esc(m.model_version)}</dd></div>
-        <div class="kv"><dt>Encoder</dt><dd>${esc(m.encoder_model_id)}</dd></div>
-        <div class="kv"><dt>Classifier config</dt><dd>${esc(m.classifier_config)}</dd></div>
-        <div class="kv"><dt>Classes</dt><dd>${m.classes.map(esc).join(", ")}</dd></div>
-        <div class="kv"><dt>Sample rate</dt><dd>${m.sample_rate} Hz</dd></div>
-        <div class="kv"><dt>Window</dt><dd>${m.window_sec}s</dd></div>`;
-      $("footVersion").textContent = m.model_version;
-    } catch (e) {
-      dl.innerHTML = `<div class="kv"><dt>Status</dt><dd>server unreachable</dd></div>`;
-    }
+  // The served system's threshold and version, shown in the footer and on the Method page.
+  async function showSystemInfo() {
+    const info = await fetchRoutingInfo();
+    if (!info) return;
+    document.querySelectorAll(".thr-text").forEach((el) => (el.textContent = String(info.threshold)));
+    $("footVersion").textContent = `Green Inference Engine ${info.version || ""} · threshold ${info.threshold}`;
   }
 
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+  // ---------------- model choice ----------------
+  let currentMode = "gie";
+  try { if (localStorage.getItem("ser-mode") === "heavy") currentMode = "heavy"; } catch (e) {}
+  const MODE_NAMES = { gie: "Green Inference Engine", heavy: "Heavy model only" };
+  function setMode(m) {
+    currentMode = m;
+    document.querySelectorAll(".mode-opt").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.mode === m)));
+    try { localStorage.setItem("ser-mode", m); } catch (e) {}
+  }
+  document.querySelectorAll(".mode-opt").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
+  setMode(currentMode);
+
   // ---------------- requests ----------------
-  $("analyzeBtn").addEventListener("click", async () => {
-    if (!monoSamples || !sampleRate) return;
-    const btn = $("analyzeBtn");
-    const form = new FormData();
-    form.append("file", await uploadWav(), "clip.wav");
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spin"></span>Analyzing…';
-    clearError();
-    headlineEmotion = null;
-    // Adaptive routing goes first: it is the fast one, so the pipeline is moving on screen while the
-    // slower headline analysis (which also builds the timeline) is still computing.
-    await startLiveRouting();
-    try {
-      const resp = await fetch(apiBase() + "/predict", { method: "POST", body: form });
-      const json = await resp.json();
-      if (!resp.ok) showError(ERROR_MESSAGES[json.error_code] || json.message || "Something went wrong on the server.");
-      else renderResults(json);
-    } catch (e) {
-      showError("Could not reach the server at " + apiBase() + ".");
-    } finally {
-      btn.disabled = false;
-      btn.textContent = "Analyze recording";
-    }
-  });
+  $("analyzeBtn").addEventListener("click", () => runAnalysis());
 
   const base64ToBlob = (b64, mime) => {
     const bin = atob(b64), bytes = new Uint8Array(bin.length);
@@ -1453,21 +1555,20 @@
     btn.disabled = true;
     status.innerHTML = '<span class="spin"></span>Downloading the audio track — long videos take a while.';
     try {
-      const resp = await fetch(apiBase() + "/predict/youtube", {
+      const resp = await fetch(apiBase() + "/youtube/audio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
       });
       const json = await resp.json();
       if (!resp.ok) {
-        showError(ERROR_MESSAGES[json.error_code] || json.message || "Something went wrong on the server.");
+        showError(ERROR_MESSAGES[json.error_code] || json.message || json.detail || "Something went wrong on the server.");
         status.textContent = "";
       } else {
-        // Decode the returned audio locally so window playback works exactly as it does for an upload.
-        if (json.audio_base64) { try { await ingestBlob(base64ToBlob(json.audio_base64, "audio/wav")); } catch (e) {} }
-        status.textContent = json.source && json.source.title ? "Analyzed: " + json.source.title : "Done.";
-        renderResults(json);
-        startLiveRouting();  // the downloaded audio is now decoded locally, so it can be routed like any recording
+        // Decoded locally, the video's audio is just another recording: same trimming, playback and analysis.
+        await ingestBlob(base64ToBlob(json.audio_base64, "audio/wav"));
+        status.textContent = json.source && json.source.title ? "Fetched: " + json.source.title : "Fetched.";
+        await runAnalysis({ youtube: true });
       }
     } catch (e) {
       showError("Could not reach the server at " + apiBase() + ".");
@@ -1493,10 +1594,10 @@
     return { label: "Not very confident", color: "var(--status-critical)" };
   }
 
+  const BRANCH_NAMES = { light: "Light model", heavy: "Heavy model (Emotion2Vec+)" };
+
   function renderResults(json) {
     lastResult = json;
-    headlineEmotion = json.emotion;
-    updateLiveCompare();
     clearError();
     $("results").classList.remove("hidden");
 
@@ -1507,35 +1608,121 @@
 
     const st = confidenceStatus(json.confidence);
     $("rBadge").innerHTML = `<span class="dot" style="background:${st.color}"></span>${st.label}`;
+    $("rDecided").innerHTML = `Answered by <b>${BRANCH_NAMES[json.branch_used] || json.branch_used}</b> · ${MODE_NAMES[json.mode] || ""}`;
 
-    // ranked runner-up gives the summary its "or" reading
     const ranked = EMOTIONS.map((e) => [e, json.probabilities[e] ?? 0]).sort((a, b) => b[1] - a[1]);
-    const second = ranked[1];
     const tl = json.timeline;
-    const top = tl && tl.windows && tl.windows[tl.top_window_idx];
-    let summary = `Overall this recording reads as <b>${esc(emo)}</b>, at ${(json.confidence * 100).toFixed(1)}% confidence.`;
-    if (second && second[1] >= 0.15) {
-      summary += ` The next closest reading is <b>${esc(second[0])}</b> at ${(second[1] * 100).toFixed(1)}%, so treat this as a lean rather than a clear call.`;
-    }
-    if (top) {
-      summary += ` The strongest evidence sits between ${top.start_s.toFixed(1)}s and ${top.end_s.toFixed(1)}s.`;
-    }
-    $("rSummary").innerHTML = summary;
+    const why = explain(json, ranked);
+    $("rSummary").innerHTML = why.html;
+    speakText = why.speech;
+    $("speakBtn").classList.toggle("hidden", !canSpeak);
 
     const lat = json.latency_ms || {};
     $("rMeta").innerHTML = `
       <div class="kv"><dt>Length</dt><dd>${(json.duration_sec ?? 0).toFixed(1)}s</dd></div>
+      <div class="kv"><dt>Mode</dt><dd>${json.mode === "heavy" ? "Heavy only" : "GIE"}</dd></div>
+      <div class="kv"><dt>Answered by</dt><dd>${json.branch_used === "heavy" ? "Heavy" : "Light"}</dd></div>
+      ${json.routing ? `<div class="kv"><dt>Router</dt><dd>${json.routing.router_score.toFixed(3)} / ${json.routing.router_threshold}</dd></div>` : ""}
       <div class="kv"><dt>Windows</dt><dd>${tl ? tl.n_windows : "—"}</dd></div>
-      <div class="kv"><dt>Attribution</dt><dd>${tl && tl.attribution_exact ? "exact" : "approximate"}</dd></div>
-      ${json.source && json.source.title ? `<div class="kv"><dt>Source</dt><dd>YouTube</dd></div>` : ""}
-      <div class="kv"><dt>Compute</dt><dd>${lat.total_ms ? (lat.total_ms / 1000).toFixed(1) + "s" : "—"}</dd></div>
-      <div class="kv"><dt>Model</dt><dd style="font-size:11px;word-break:break-all">${esc(json.model_version || "")}</dd></div>`;
+      ${json.source === "youtube" ? `<div class="kv"><dt>Source</dt><dd>YouTube</dd></div>` : ""}
+      <div class="kv"><dt>Compute</dt><dd>${lat.total_ms ? (lat.total_ms / 1000).toFixed(1) + "s" : "—"}</dd></div>`;
 
     renderProbabilities(json, ranked);
-    renderWarnings(json);
-    if (tl && tl.windows && tl.windows.length) renderTimeline(tl);
+    if (tl && tl.windows && tl.windows.length) renderTimeline(tl, json);
     else $("timelineSection").classList.add("hidden");
   }
+
+  // ---------------- the explanation (shown, and read aloud) ----------------
+  const ADJ = { angry: "angry", disgust: "disgusted", fear: "fearful", happy: "happy", neutral: "neutral", sad: "sad" };
+  const CUES = {
+    angry: "a forceful voice with high energy",
+    disgust: "a tense, clipped delivery",
+    fear: "an unsteady pitch and shaky energy",
+    happy: "a bright, lively delivery with a higher pitch",
+    neutral: "a steady pitch and even energy",
+    sad: "low energy and a falling pitch",
+  };
+  const secs = (s) => (Math.abs(s - Math.round(s)) < 0.05 ? String(Math.round(s)) : s.toFixed(1));
+  const median = (a) => { const b = [...a].sort((x, y) => x - y); const m = b.length >> 1; return b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2; };
+
+  // Every sentence is built from this result's own numbers: the probabilities, the strongest window's
+  // measured loudness and pitch against the rest of the clip, and the route the clip actually took.
+  function explain(d, ranked) {
+    const emo = d.emotion, adj = ADJ[emo] || emo, pct = Math.round(d.confidence * 100);
+    const parts = [];   // [html, speech]
+    parts.push([`This voice sounds mostly <b>${esc(adj)}</b>, with ${pct}% confidence.`,
+                `This voice sounds mostly ${adj}, with ${pct} percent confidence.`]);
+    const second = ranked[1];
+    if (second && second[1] >= 0.15) {
+      const p2 = Math.round(second[1] * 100);
+      parts.push([`It could also be ${esc(ADJ[second[0]] || second[0])} (${p2}%), so read it as a lean, not a certainty.`,
+                  `It could also be ${ADJ[second[0]] || second[0]}, at ${p2} percent, so treat it as a lean, not a certainty.`]);
+    }
+    const tl = d.timeline, ws = (tl && tl.windows) || [];
+    const top = ws[tl ? tl.top_window_idx : 0];
+    if (top && ws.length > 1) {
+      const traits = [];
+      const eMed = median(ws.map((w) => w.energy_rms || 0));
+      if (eMed > 0 && top.energy_rms > 1.25 * eMed) traits.push("louder");
+      else if (eMed > 0 && top.energy_rms < 0.8 * eMed) traits.push("quieter");
+      const voiced = ws.map((w) => w.pitch_hz).filter((p) => p);
+      if (top.pitch_hz && voiced.length > 1) {
+        const pAvg = voiced.reduce((a, b) => a + b, 0) / voiced.length;
+        if (top.pitch_hz > 1.08 * pAvg) traits.push("higher-pitched");
+        else if (top.pitch_hz < 0.92 * pAvg) traits.push("lower-pitched");
+      }
+      const where = `between ${secs(top.start_s)} and ${secs(top.end_s)} seconds`;
+      const how = traits.length ? `, where your voice was ${traits.join(" and ")} than in the rest of the recording` : "";
+      parts.push([`The clearest ${esc(adj)} moment is ${where}${how}.`, `The clearest ${adj} moment is ${where}${how}.`]);
+    }
+    parts.push([`The model links ${esc(adj)} speech with ${CUES[emo] || "a distinct tone"}.`,
+                `The model links ${adj} speech with ${CUES[emo] || "a distinct tone"}.`]);
+    const r = d.routing;
+    if (d.mode === "heavy") {
+      parts.push(["In heavy-only mode the Emotion2Vec+ model analysed the whole clip directly.",
+                  "In heavy only mode, the Emotion 2 Vec plus model analysed the whole clip directly."]);
+    } else if (r && d.branch_used === "light") {
+      parts.push(["The router judged the light model's answer good enough, so the Green Inference Engine kept it and never ran the heavy model.",
+                  "The router judged the light model's answer good enough, so the Green Inference Engine kept it and never ran the heavy model."]);
+    } else if (r) {
+      const agree = r.light_prediction === r.heavy_prediction;
+      const lp = ADJ[r.light_prediction] || r.light_prediction;
+      parts.push([`The router judged this clip too complex for the light model alone, so the heavy Emotion2Vec+ model made the final call${agree ? ", and both models agreed" : ` (the light model's first guess was ${esc(lp)})`}.`,
+                  `The router judged this clip too complex for the light model alone, so the heavy Emotion 2 Vec plus model made the final call${agree ? ", and both models agreed" : `. The light model's first guess was ${lp}`}.`]);
+    }
+    return { html: parts.map((p) => p[0]).join(" "), speech: parts.map((p) => p[1]).join(" ") };
+  }
+
+  // ---------------- read aloud (the browser's own voice; nothing is sent anywhere) ----------------
+  const canSpeak = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+  let speakText = "";
+  function syncSpeak(on) {
+    const b = $("speakBtn");
+    b.classList.toggle("speaking", on);
+    b.innerHTML = on ? "&#9632; Stop" : "&#128264; Hear why";
+  }
+  function stopSpeaking() {
+    if (canSpeak) window.speechSynthesis.cancel();
+    syncSpeak(false);
+  }
+  function pickVoice() {
+    const voices = window.speechSynthesis.getVoices();
+    const en = voices.filter((v) => /^en([-_]|$)/i.test(v.lang));
+    return en.find((v) => v.lang === navigator.language) || en.find((v) => v.default) || en[0] || null;
+  }
+  $("speakBtn").addEventListener("click", () => {
+    if (!canSpeak || !speakText) return;
+    if (window.speechSynthesis.speaking) { stopSpeaking(); return; }
+    $("clipAudio").pause();
+    window.speechSynthesis.cancel();   // Chrome can leave a stuck queue behind
+    const u = new SpeechSynthesisUtterance(speakText);
+    const v = pickVoice();
+    if (v) { u.voice = v; u.lang = v.lang; } else u.lang = "en-US";
+    u.rate = 1;
+    u.onend = u.onerror = () => syncSpeak(false);
+    window.speechSynthesis.speak(u);
+    syncSpeak(true);
+  });
 
   function renderProbabilities(json, ranked) {
     const bars = $("barsView"), table = $("tableView");
@@ -1571,23 +1758,13 @@
     $("viewToggle").textContent = showingTable ? "Table view" : "Chart view";
   });
 
-  function renderWarnings(json) {
-    const slot = $("warnSlot");
-    slot.innerHTML = "";
-    (json.warnings || []).forEach((w) => {
-      const d = document.createElement("div");
-      d.className = "note";
-      d.textContent = w;
-      slot.appendChild(d);
-    });
-  }
-
   // ---------------- timeline ----------------
-  function renderTimeline(tl) {
+  function renderTimeline(tl, d) {
     $("timelineSection").classList.remove("hidden");
-    $("tlSub").textContent = tl.attribution_exact
-      ? "This clip fitted inside one window, so these numbers are the classifier's exact arithmetic."
-      : "This clip was split into several windows, so these numbers are approximate supporting evidence — not exact arithmetic.";
+    const by = d && d.branch_used === "light" ? "the light model" : "the heavy model";
+    $("tlSub").textContent = tl.n_windows > 1
+      ? `Each bar is one stretch of your recording, scored by ${by}: up pushed toward ${d ? d.emotion : "the answer"}, down pushed away from it. Tap a bar to hear that stretch.`
+      : `Your recording fits in one window, scored by ${by}. Tap it to hear it.`;
 
     const track = $("tlTrack"), axis = $("tlAxis");
     track.innerHTML = '<div class="tl-zero"></div>';
@@ -1772,6 +1949,7 @@
     }
     $("routingApp").classList.remove("hidden");
     $("routingUnavailable").classList.add("hidden");
+    if (!$("demoPipe").children.length) $("demoPipe").innerHTML = pipeHTML("");
     buildCaseTabs();
     buildRoutingStats();
     resetPipeline();
@@ -1779,14 +1957,9 @@
   }
 
   function buildCaseTabs() {
-    const blurb = {
-      easy: "cheap model is confident and right",
-      borderline: "cheap model is confident and wrong",
-      hard: "cheap model is unsure and wrong",
-    };
     $("caseTabs").innerHTML = routingInfo.demo_clips.map((c, i) => `
       <button class="case-tab" role="tab" data-case="${c.case}" aria-selected="${i === 0}">
-        <b>${c.case}</b><span>${blurb[c.case] || ""}</span>
+        <b>${esc(ADJ[c.true_label] || c.true_label)}</b><span>acted speech · ${esc(c.source || "")}</span>
       </button>`).join("");
     routingCase = routingInfo.demo_clips[0].case;
     $("caseTabs").querySelectorAll(".case-tab").forEach((t) => {
@@ -1802,8 +1975,31 @@
 
   function buildRoutingStats() {
     const m = routingInfo.metrics, pct = (v) => (v == null ? "—" : (v * 100).toFixed(1) + "%");
+    const rv = routingInfo.real_voice;
+    if (rv) {
+      $("routingStatsSrc").textContent = `Real voices: ${rv.clips} recordings from ${rv.people.length} people, each tested as a stranger the models never trained on.`;
+      $("routingStats").innerHTML = `
+        <div class="stat">
+          <div class="stat-val">${pct(rv.light_answered_share)}</div>
+          <div class="stat-k">of clips answered by the light model, so the heavy model was skipped
+          (the old acted-speech router: ${pct(rv.old_system.light_answered_share)}).</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val">${pct(rv.routed_accuracy)}</div>
+          <div class="stat-k">routed accuracy, against ${pct(rv.heavy_only_accuracy)} for the heavy model on
+          every clip. Routing saves compute; it can't make answers better than the heavy model's.</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val">${pct(1 - rv.differs_from_heavy)}</div>
+          <div class="stat-k">of answers matched what the heavy model would have said. The target was
+          ${pct(1 - rv.target_differs_from_heavy)}, so on new people the router lets light answer too often.</div>
+        </div>`;
+      $("routingCaveats").textContent = `Compute: the light path costs ~${m.always_paid_sec.toFixed(3)}s per clip and the heavy model ~${m.escalated_extra_sec.toFixed(2)}s more (~${m.cost_multiple}×), timed on a Colab CPU.`;
+      return;
+    }
     // routed 67.76 vs heavy 67.84 both round to 67.8 at 1dp -- show 2 here so the gap is visible
     const pct2 = (v) => (v == null ? "—" : (v * 100).toFixed(2) + "%");
+    $("routingStatsSrc").textContent = "Acted evaluation corpus, 1,278 test clips.";
     $("routingStats").innerHTML = `
       <div class="stat">
         <div class="stat-val">${pct2(m.routed_test_accuracy)}</div>
@@ -1821,7 +2017,6 @@
         which is what fixes the threshold at ${routingInfo.threshold}.</div>
       </div>`;
     $("routingCaveats").textContent = routingInfo.latency_caveat;
-    $("corpusCaveat").textContent = routingInfo.corpus_caveat;
   }
 
   function updateCounter() {
@@ -1835,10 +2030,17 @@
   const STAGES = ["audio", "light", "router", "heavy", "final"];
   const STAGE_TITLES = {
     audio: "Audio in",
-    light: "Light branch — MFCC + small MLP",
-    router: "Router — is this worth escalating?",
-    heavy: "Heavy branch — Emotion2Vec+",
-    final: "Final answer",
+    light: "Light model — MFCC + small MLP",
+    router: "Router — does this clip need the heavy model?",
+    heavy: "Heavy model — Emotion2Vec+",
+    final: "Answer",
+  };
+  const STAGE_DESC = {
+    audio: "Your recording, as mono 16 kHz audio.",
+    light: "MFCC features into a small neural network. Runs on every clip, in milliseconds.",
+    router: "Reads the opening three seconds and the light model's confidence, then decides.",
+    heavy: "Emotion2Vec+, a 94M-parameter speech encoder. Runs only when the router escalates.",
+    final: "One answer, from whichever model the router trusted.",
   };
   const CANCEL = Symbol("cancelled");
 
@@ -1848,8 +2050,9 @@
     return STAGES.map((s, i) => `
       <div class="stage" id="${p}st-${s}">
         <div class="stage-head">
-          <span class="stage-n">${i + 1}</span><span class="stage-title">${s === "final" && p ? "Routed system's answer" : STAGE_TITLES[s]}</span>
+          <span class="stage-n">${i + 1}</span><span class="stage-title">${STAGE_TITLES[s]}</span>
           <span class="stage-cost" id="${p}cost-${s}"></span>
+          <span class="stage-desc">${STAGE_DESC[s]}</span>
         </div>
         <div class="stage-body" id="${p}body-${s}"></div>
       </div>${i < STAGES.length - 1 ? `<div class="link" id="${p}lk-${i + 1}"></div>` : ""}`).join("");
@@ -1906,16 +2109,14 @@
         <div class="row" style="gap:14px;">
           ${chip(r.light_prediction, r.light_confidence)}
           ${truth ? `<span class="fine">${r.light_prediction === truth ? "correct" : "wrong — the true label is " + truth}</span>` : ""}
-        </div>
-        <p class="fine" style="margin:10px 0 0;">This runs on every recording, start to finish. It is
-        the whole reason the cheap path can ever be enough.</p>`;
+        </div>`;
       await wait(900);
       E("st", "light").className = "stage done";
       E("lk", "2").className = "link flow"; await wait(650);
 
       // 3 — router
       E("st", "router").className = "stage active";
-      E("cost", "router").textContent = "reads the first 3s + the light branch's confidence";
+      E("cost", "router").textContent = "reads the opening 3s + the light model's confidence";
       const pos = Math.min(100, Math.max(0, r.router_score * 100));
       E("body", "router").innerHTML = `
         <div class="gauge">
@@ -1923,7 +2124,7 @@
             <div class="gauge-fill" id="${p}gfill" style="background:${escalated ? "var(--div-neg)" : "var(--div-pos)"}"></div>
             <div class="gauge-thresh" data-t="${r.router_threshold}" style="left:${r.router_threshold * 100}%"></div>
           </div>
-          <div class="gauge-scale"><span>0.0 — keep the cheap answer</span><span>1.0 — escalate</span></div>
+          <div class="gauge-scale"><span>0.0 — keep the light answer</span><span>1.0 — needs heavy</span></div>
         </div>
         <div class="row" style="margin-top:14px; gap:14px;">
           <span class="gauge-val" style="color:${escalated ? "var(--div-neg)" : "var(--div-pos)"}">${r.router_score.toFixed(4)}</span>
@@ -1946,7 +2147,7 @@
             ${chip(r.heavy_prediction, r.heavy_confidence)}
             ${truth ? `<span class="fine">${r.heavy_prediction === truth ? "correct" : "also wrong"}</span>` : ""}
           </div>
-          <p class="fine" style="margin:10px 0 0;">A 94M-parameter encoder ran because the router
+          <p class="fine" style="margin:10px 0 0;">The 94M-parameter encoder ran because the router
           judged this recording worth it.</p>`;
         await wait(1000);
         E("st", "heavy").className = "stage done";
@@ -1955,7 +2156,7 @@
         E("st", "heavy").className = "stage skipped";
         E("cost", "heavy").textContent = "not run · cost avoided";
         E("body", "heavy").innerHTML = `<p class="fine" style="margin:0;">The encoder never ran. That is
-          the saving — and it is also the risk the threshold is deliberately taking.</p>`;
+          the compute saved.</p>`;
         await wait(700);
       }
       E("lk", "4").className = "link flow"; await wait(600);
@@ -1969,13 +2170,13 @@
           ${chip(r.final_prediction, r.final_confidence)}
           ${truth
             ? `<span class="badge"><span class="dot" style="background:${finalRight ? "var(--status-good)" : "var(--status-critical)"}"></span>${finalRight ? "correct" : "wrong"}</span>`
-            : `<span class="badge">decided by the ${r.branch_used} branch</span>`}
+            : `<span class="badge">answered by the ${r.branch_used} model</span>`}
         </div>
-        <p class="fine" style="margin:10px 0 0;">Decided by the <b>${r.branch_used}</b> branch, because the
+        <p class="fine" style="margin:10px 0 0;">Answered by the <b>${r.branch_used}</b> model, because the
         router scored ${r.router_score.toFixed(4)} ${escalated ? "at or above" : "below"} the ${r.router_threshold}
         threshold.${truth && !finalRight && !escalated
           ? " It came within " + Math.abs(r.router_threshold - r.router_score).toFixed(4) +
-            " of escalating, and escalating would have got it right. This is exactly the trade the certified threshold is making."
+            " of escalating, and escalating would have got it right."
           : ""}</p>`;
       return true;
     } catch (e) {
@@ -2022,8 +2223,8 @@
     btn.disabled = false;
   }
 
-  // ---------------- live routing on the Analyze page ----------------
-  let liveToken = 0, liveFinal = null, headlineEmotion = null, routingInfoCache = null;
+  // ---------------- one analysis: the answer, how it was reached, and why ----------------
+  let liveToken = 0, routingInfoCache = null;
 
   async function fetchRoutingInfo() {
     if (routingInfoCache) return routingInfoCache;
@@ -2035,97 +2236,111 @@
     } catch (e) { return null; }
   }
 
-  function updateLiveCompare() {
-    const el = $("liveCompare");
-    if (!liveFinal || !headlineEmotion) { el.textContent = ""; return; }
-    el.innerHTML = liveFinal.final_prediction === headlineEmotion
-      ? `<b>Both systems agree: ${esc(headlineEmotion)}.</b> The headline below comes from the product's locked
-         classifier; the panel below is a separate routed system that reached the same answer.`
-      : `<b>The two systems disagree.</b> The headline below (<b>${esc(headlineEmotion)}</b>) comes from the
-         product's locked classifier. This panel is a separate routed system and answered
-         <b>${esc(liveFinal.final_prediction)}</b>. They use different classifier heads trained on different
-         data, so on a real voice they can differ. Only the headline classifier has a measured real-voice accuracy (about 33%).`;
+  const chipHTML = (label, conf) => `
+    <span class="verdict-chip" style="border-color:${emoColor(label)}">
+      <span class="dot" style="background:${emoColor(label)}"></span>${label} · ${(conf * 100).toFixed(1)}%
+    </span>`;
+
+  // Heavy-only mode through the same five stages: the light model and router are shown as skipped.
+  async function playHeavyOnly(p, d, o) {
+    const E = (kind, stage) => $(`${p}${kind}-${stage}`);
+    const wait = async (ms) => { await sleep(ms); if (!o.alive()) throw CANCEL; };
+    try {
+      ["light", "router"].forEach((s) => {
+        E("st", s).className = "stage skipped";
+        E("cost", s).textContent = "not used in heavy-only mode";
+        E("body", s).innerHTML = "";
+      });
+      E("st", "heavy").className = "stage active";
+      E("cost", "heavy").textContent = `~${o.metrics.escalated_extra_sec.toFixed(2)}s per 3s of audio`;
+      E("body", "heavy").innerHTML = `
+        <div class="row" style="gap:14px;">${chipHTML(d.emotion, d.confidence)}</div>
+        <p class="fine" style="margin:10px 0 0;">The 94M-parameter encoder analysed the whole clip.</p>`;
+      await wait(900);
+      E("st", "heavy").className = "stage done";
+      E("lk", "4").className = "link flow"; await wait(600);
+      E("st", "final").className = "stage active done";
+      E("cost", "final").textContent = `measured here: ${(o.totalMs / 1000).toFixed(2)}s wall clock`;
+      E("body", "final").innerHTML = `
+        <div class="row" style="gap:14px;">${chipHTML(d.emotion, d.confidence)}
+          <span class="badge">answered by the heavy model</span></div>`;
+      return true;
+    } catch (e) {
+      if (e === CANCEL) return false;
+      throw e;
+    }
   }
 
-  // Returns a promise that resolves once the routed result has come back (not when the animation
-  // ends), so the caller can start the slower headline analysis while the pipeline is still moving.
-  function startLiveRouting() {
+  // One request to /analyze with the chosen mode. The pipeline panel shows what is genuinely known
+  // while it runs, replays the real route once the answer is back, then the result appears.
+  async function runAnalysis(opts = {}) {
+    if (!monoSamples || !sampleRate) return;
     const token = ++liveToken, alive = () => token === liveToken;
-    let resolveReady;
-    const ready = new Promise((res) => (resolveReady = res));
-    liveFinal = null;
-    updateLiveCompare();
+    const btn = $("analyzeBtn"), mode = currentMode;
+    stopSpeaking();
+    clearError();
+    $("results").classList.add("hidden");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span>Analyzing…';
+    try {
+      const info = await fetchRoutingInfo();
+      if (!alive()) return;
+      if (!info) { showError("This server has no light/heavy models loaded, so it can't analyze yet."); return; }
 
-    (async () => {
-      const wrap = $("liveRouting");
-      try {
-        if (!monoSamples || !sampleRate) return;
-        const info = await fetchRoutingInfo();
-        if (!info) { wrap.classList.add("hidden"); return; }   // server has no adaptive routing: Analyze behaves as before
-        if (!alive()) return;
-
-        const dur = monoSamples.length / sampleRate;
-        const whole = dur <= info.router_audio_sec + 1e-6;
-        const pipe = $("liveRoutingPipe");
-        if (!pipe.children.length) pipe.innerHTML = pipeHTML("lv-");
-        resetPipe("lv-");
-        wrap.classList.remove("hidden");
-
-        $("liveNotes").innerHTML =
-          (whole ? "" : `<div class="note"><b>The router heard only the first ${info.router_audio_sec.toFixed(1)}s</b>
-             of your ${dur.toFixed(1)}s recording. That is a placeholder rule, not a validated one — the system was
-             only ever evaluated on clips whose opening <em>was</em> the whole clip.</div>`) +
-          `<div class="note" style="margin-top:10px;"><b>Calibrated on acted speech.</b> The router has never been
-             checked on real voices, so whether it escalates the right recordings on yours is unproven.
-             This project's measured real-world accuracy is about 33%, and routing does not change that.</div>
-           <div class="note" style="margin-top:10px;"><b>Scores near the threshold are fragile.</b> In testing, simply
-             passing a demo clip through the browser's audio decode and re-encode moved its router score from 0.375 to
-             0.423 and flipped the decision. A score close to ${info.threshold} means "could easily have gone the other
-             way", not a precise verdict.</div>`;
-
-        // What is genuinely true the instant Analyze is clicked: the audio is in, and the cheap
-        // branch is running. Everything after that waits for the real result.
-        $("lv-st-audio").className = "stage done";
-        $("lv-body-audio").innerHTML =
-          `Your recording — <b>${dur.toFixed(1)}s</b>. The light branch hears all of it. The router will hear
-           ${whole ? "the same audio (it is no longer than 3s)" : "only the first 3.0s"}.`;
+      const dur = monoSamples.length / sampleRate;
+      const wrap = $("liveRouting"), pipe = $("liveRoutingPipe");
+      if (!pipe.children.length) pipe.innerHTML = pipeHTML("lv-");
+      resetPipe("lv-");
+      wrap.classList.remove("hidden");
+      $("liveModeName").textContent = MODE_NAMES[mode];
+      $("liveSub").textContent = mode === "heavy"
+        ? "Heavy-only mode: the light model and the router are skipped, and Emotion2Vec+ analyses the whole clip."
+        : "The light model always listens first. The router then decides whether its answer can stand, or whether this clip needs the heavy model.";
+      $("lv-st-audio").className = "stage done";
+      $("lv-body-audio").innerHTML = `Your recording, <b>${dur.toFixed(1)}s</b>.`;
+      if (mode === "heavy") {
+        ["light", "router"].forEach((s) => ($(`lv-st-${s}`).className = "stage skipped"));
+        [1, 2, 3].forEach((i) => ($(`lv-lk-${i}`).className = "link cut"));
+        $("lv-st-heavy").className = "stage active";
+        $("lv-cost-heavy").textContent = "running…";
+        $("lv-body-heavy").innerHTML = '<span class="spin"></span>Emotion2Vec+ is listening to the whole clip, then scoring each five-second stretch…';
+      } else {
         $("lv-lk-1").className = "link flow";
         $("lv-st-light").className = "stage active";
         $("lv-cost-light").textContent = "running…";
-        $("lv-body-light").innerHTML =
-          '<span class="spin"></span>Extracting MFCC features from the whole recording and asking the small model…';
-        wrap.scrollIntoView({ behavior: "smooth", block: "start" });
-
-        let data;
-        try {
-          const form = new FormData();
-          form.append("file", await uploadWav(), "clip.wav");
-          const resp = await fetch(apiBase() + "/predict/adaptive", { method: "POST", body: form });
-          const json = await resp.json();
-          if (!resp.ok) throw new Error(ERROR_MESSAGES[json.error_code] || json.message || json.detail || "server error");
-          data = json;
-        } catch (e) {
-          if (alive()) {
-            $("lv-st-light").className = "stage";
-            $("lv-cost-light").textContent = "";
-            $("lv-body-light").innerHTML = `<span class="fine">Routing could not run: ${esc(e.message)}</span>`;
-          }
-          return;
-        }
-        resolveReady();
-        if (!alive()) return;
-
-        const finished = await playPipeline("lv-", data.adaptive_routing, {
-          skipAudio: true, durationSec: data.duration_sec, totalMs: data.latency_ms.total_ms,
-          metrics: info.metrics, trueLabel: null, alive,
-        });
-        if (finished) { liveFinal = data.adaptive_routing; updateLiveCompare(); }
-      } finally {
-        resolveReady();
+        $("lv-body-light").innerHTML = '<span class="spin"></span>Extracting MFCC features from the whole recording and asking the light model…';
       }
-    })();
+      wrap.scrollIntoView({ behavior: "smooth", block: "start" });
 
-    return ready;
+      let data;
+      try {
+        const form = new FormData();
+        form.append("file", await uploadWav(), "clip.wav");
+        form.append("mode", mode);
+        const resp = await fetch(apiBase() + "/analyze", { method: "POST", body: form });
+        const json = await resp.json();
+        if (!resp.ok) throw new Error(ERROR_MESSAGES[json.error_code] || json.message || json.detail || "Something went wrong on the server.");
+        data = json;
+      } catch (e) {
+        if (alive()) {
+          wrap.classList.add("hidden");
+          showError(e instanceof TypeError ? "Could not reach the server at " + apiBase() + "." : e.message);
+        }
+        return;
+      }
+      if (!alive()) return;
+      if (opts.youtube) data.source = "youtube";
+
+      const o = { skipAudio: true, durationSec: data.duration_sec, totalMs: data.latency_ms.total_ms,
+                  metrics: info.metrics, trueLabel: null, alive };
+      const finished = mode === "heavy" ? await playHeavyOnly("lv-", data, o) : await playPipeline("lv-", data.routing, o);
+      if (finished && alive()) {
+        renderResults(data);
+        $("results").scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    } finally {
+      if (alive()) { btn.disabled = false; btn.textContent = "Analyze recording"; }
+    }
   }
 
   $("runRouting").addEventListener("click", runRoutingDemo);
@@ -2158,13 +2373,27 @@
     }).join("");
   })();
 
+  // ---------------- team pictures: GitHub avatars, initials if one can't load ----------------
+  document.querySelectorAll("img.avatar").forEach((img) => {
+    const fallback = () => {
+      const d = document.createElement("div");
+      d.className = "mono-av";
+      d.setAttribute("aria-hidden", "true");
+      d.textContent = img.dataset.initials || "";
+      img.replaceWith(d);
+    };
+    // already failed before this ran (a lazy image that hasn't started yet has no currentSrc)
+    if (img.complete && img.naturalWidth === 0 && img.currentSrc) fallback();
+    else img.addEventListener("error", fallback, { once: true });
+  });
+
   // ---------------- boot ----------------
   renderRoute();
   (async () => {
     await autodetectApi();
     if (await connectWithWake()) {
       if (currentRoute() === "/routing" && !routingInfo) loadRoutingInfo();
-      if (currentRoute() === "/method") refreshModelCard();
+      showSystemInfo();
     }
   })();
 })();

@@ -1,0 +1,154 @@
+{
+  "generated_by": "notebook 31 \u2014 light model + router retrained on real voices",
+  "verified": true,
+  "librosa_version": "0.11.0",
+  "emotions_in_order": [
+    "angry",
+    "disgust",
+    "fear",
+    "happy",
+    "neutral",
+    "sad"
+  ],
+  "sample_rate": 16000,
+  "warning": "The MFCC path and the ASCA path use DIFFERENT audio preparation. Feeding one path's audio to the other silently corrupts the input: the models still return confident-looking answers. Follow each path exactly.",
+  "mfcc_path": {
+    "purpose": "input to the light branch (light_mfcc_mlp_v2.joblib)",
+    "audio": "FULL LENGTH, librosa.load(path, sr=16000, mono=True), no padding and no truncation",
+    "extractor": {
+      "n_mfcc": 13,
+      "n_fft": 400,
+      "hop_length": 160,
+      "deltas": "delta and delta2 of the mfcc matrix",
+      "drop_coefficient_0": true,
+      "stack": "vstack([mfcc[1:], delta[1:], delta2[1:]]) -> (36, T)",
+      "pooling": "concatenate([mean(axis=1), std(axis=1)]) -> (72,)"
+    },
+    "output_dim": 72,
+    "scaler": "mfcc_scaler_v2.joblib",
+    "scaler_type": "sklearn StandardScaler",
+    "scaler_recovery_method": "recovered",
+    "order": "extract raw 72-d vector, THEN scaler.transform, THEN the light head",
+    "model": "light_mfcc_mlp_v2.joblib"
+  },
+  "asca_path": {
+    "purpose": "first 12 of the router's 15 features (router_recalibrated.joblib)",
+    "audio": "FIXED 3.00s = 48000 samples. librosa.load(path, sr=16000, mono=True), then zero-pad at the END if shorter, or truncate to the FIRST 3s if longer.",
+    "extractor": "the 12 ASCA complexity features, librosa DEFAULT n_fft/hop (2048/512) \u2014 NOT the MFCC path's 400/160",
+    "feature_order": [
+      "snr",
+      "rms_energy",
+      "spectral_bandwidth",
+      "spectral_flatness",
+      "spectral_centroid",
+      "zero_crossing_rate",
+      "spectral_rolloff",
+      "spectral_contrast",
+      "spectral_flux",
+      "energy_entropy",
+      "mfcc_mean",
+      "mfcc_std"
+    ],
+    "output_dim": 12,
+    "scaler": "asca_minmax_scaler.joblib",
+    "scaler_type": "sklearn MinMaxScaler, feature_range (0, 1)",
+    "scaler_recovery_method": "direct",
+    "clipping": "the scaler does NOT clip. A live clip outside the training range will scale outside [0, 1]; that is expected and is what the router was calibrated on.",
+    "order": "prepare 3s audio, extract raw 12-d vector, THEN scaler.transform",
+    "scaler_note": "asca_minmax_scaler.joblib from notebook 29, unchanged"
+  },
+  "router_input": {
+    "artifact": "router_v2.joblib",
+    "expects": "a pandas DataFrame with these 15 columns, in this order",
+    "feature_order": [
+      "snr",
+      "rms_energy",
+      "spectral_bandwidth",
+      "spectral_flatness",
+      "spectral_centroid",
+      "zero_crossing_rate",
+      "spectral_rolloff",
+      "spectral_contrast",
+      "spectral_flux",
+      "energy_entropy",
+      "mfcc_mean",
+      "mfcc_std",
+      "max_probability",
+      "prediction_margin",
+      "entropy"
+    ],
+    "confidence_features": {
+      "max_probability": "max of the light branch's predict_proba row",
+      "prediction_margin": "top probability minus second-highest",
+      "entropy": "-sum(p * log(p + 1e-12)) over the light branch's row"
+    },
+    "threshold": 0.63,
+    "escalate_if": "P(route == heavy) >= threshold  (unchanged rule)",
+    "confidence_features_from": "light_mfcc_mlp_v2 probabilities"
+  },
+  "verification": {
+    "mfcc_train_rmse": 2.7868989192214025e-07,
+    "mfcc_train_max_abs_error": 2.6469176777066394e-06,
+    "asca_train_rmse": 3.734672697735505e-17,
+    "asca_train_max_abs_error": 1.1102230246251565e-16,
+    "light_accuracy_reference": 0.46635367762128327,
+    "light_accuracy_via_new_scaler": 0.46635367762128327,
+    "light_prediction_agreement": 1.0,
+    "light_accuracy_recorded": 0.4664,
+    "router_invocation_reference": 0.8513302034428795,
+    "router_invocation_via_new_scaler": 0.8513302034428795,
+    "router_decision_agreement": 1.0,
+    "router_threshold": 0.375,
+    "checks": [
+      {
+        "check": "light accuracy via the new scaler matches the reference",
+        "passed": true,
+        "detail": "0.4664 vs 0.4664"
+      },
+      {
+        "check": "light predictions agree with the reference",
+        "passed": true,
+        "detail": "100.0000%"
+      },
+      {
+        "check": "router escalate/keep decisions agree with the reference",
+        "passed": true,
+        "detail": "100.0000%"
+      },
+      {
+        "check": "mfcc reconstruction is not structurally broken",
+        "passed": true,
+        "detail": "rmse 2.787e-07"
+      },
+      {
+        "check": "asca reconstruction is not structurally broken",
+        "passed": true,
+        "detail": "rmse 3.735e-17"
+      },
+      {
+        "check": "mfcc reconstruction within WARN tolerance",
+        "passed": true,
+        "detail": "rmse 2.787e-07"
+      },
+      {
+        "check": "asca reconstruction within WARN tolerance",
+        "passed": true,
+        "detail": "rmse 3.735e-17"
+      }
+    ]
+  },
+  "known_limitation": "These scalers were fitted on the acted training corpus. Project findings record ~32.8% accuracy on spontaneous real-world speech, and the ASCA features have never been computed for the real-voice clips at all. Nothing here improves real-world accuracy; it only makes the serving path numerically faithful to the evaluated system.",
+  "heavy_branch": {
+    "encoder": "iic/emotion2vec_plus_base (ModelScope)",
+    "head": "tier1b_best_head.joblib",
+    "note": "Heavy = the website's main model, so the page shows ONE answer per recording."
+  },
+  "routing_certificate": {
+    "method": "Learn-then-Test, fixed-sequence, exact binomial",
+    "risk": "final answer differs from heavy's answer",
+    "alpha": 0.1,
+    "delta": 0.05,
+    "calibration": "cross-fitted by person (each person scored by a router trained without them)",
+    "measured_on_strangers": 0.25387596899224807
+  }
+}

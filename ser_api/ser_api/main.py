@@ -17,13 +17,13 @@ import asyncio
 import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
-from ser_api.adaptive import AdaptivePackage, route as route_adaptive
+from ser_api.adaptive import MODES, AdaptivePackage, analyze as analyze_adaptive, route as route_adaptive
 from ser_api.config import Config
 from ser_api.errors import SERInputError
 from ser_api.explainability import build_timeline
@@ -305,11 +305,14 @@ def _require_adaptive() -> AdaptivePackage:
 
 @app.get("/adaptive/info")
 async def adaptive_info():
-    """What the routing demo needs to describe itself: the certified threshold, the published
-    evaluation numbers (read from notebook28_results.json, never from memory), and the demo clips."""
+    """What the routing pages need to describe themselves: the threshold, the published evaluation
+    numbers (read from the notebooks' result files, never from memory), and the demo clips."""
     adaptive = _require_adaptive()
     results_path = adaptive.artifacts_dir / "notebook28_results.json"
     r = json.loads(results_path.read_text(encoding="utf-8")) if results_path.exists() else {}
+    real_path = adaptive.artifacts_dir / "notebook31_summary.json"
+    is_v2 = "heavy_branch" in adaptive.spec
+    real = json.loads(real_path.read_text(encoding="utf-8")) if (is_v2 and real_path.exists()) else None
 
     lat = r.get("green_metrics", {}).get("latency_seconds_per_clip", {})
     always = sum(lat.get(k, 0.0) for k in
@@ -318,10 +321,20 @@ async def adaptive_info():
 
     return {
         "available": True,
+        "version": "v2" if is_v2 else "v1",
+        "spec": adaptive.spec_name,
+        "heavy_head": adaptive.heavy_name,
         "threshold": adaptive.threshold,
-        "threshold_source": "Learn-then-Test certified (notebook 28)",
+        "threshold_source": (
+            "Learn-then-Test on 516 real clips (notebook 31)" if is_v2
+            else "Learn-then-Test certified (notebook 28)"
+        ),
         "classes": adaptive.classes,
         "router_audio_sec": 3.0,
+        # notebook 31's leave-one-person-out results on real voices (v2 only)
+        "real_voice": real,
+        # notebook 28's acted-corpus evaluation of the ORIGINAL system; the cost figures below
+        # (feature extraction vs encoder time) apply to both versions
         "metrics": {
             "light_test_accuracy": r.get("light_branch", {}).get("test_accuracy"),
             "heavy_test_accuracy": r.get("heavy_branch", {}).get("test_accuracy"),
@@ -344,11 +357,14 @@ async def adaptive_info():
             "Measured on a Colab CPU with 3-second clips, not on this hardware and not on 30-60s "
             "recordings. Read it as compute cost, not as device speed."
         ),
+        # The manifest's recorded outputs belong to the v1 system, so they are only offered as
+        # "expected" values when v1 is what is being served.
         "demo_clips": [
             {
                 "case": c["case"],
                 "true_label": c["true_label"],
-                "expected": {
+                "source": "RAVDESS" if "ravdess" in c["exported_filename"].lower() else "CREMA-D",
+                **({} if is_v2 else {"expected": {
                     "light_prediction": c["light_prediction"],
                     "light_confidence": c["light_confidence"],
                     "router_score": c["router_score_p_heavy"],
@@ -357,7 +373,7 @@ async def adaptive_info():
                     "final_prediction": c["final_prediction"],
                     "heavy_prediction": c["heavy_prediction"],
                     "heavy_confidence": c["heavy_confidence"],
-                },
+                }}),
             }
             for c in adaptive.demo_clips
         ],
@@ -414,4 +430,66 @@ async def predict_adaptive_endpoint(file: UploadFile = File(...)):
             "routed_ms": round((t_routed - t_validate) * 1000, 1),
             "total_ms": round((t_routed - t0) * 1000, 1),
         },
+    }
+
+
+# ---------------------------------------------------------------------------------------------
+# What the website calls: ONE answer per recording, from the light or the heavy model
+# ---------------------------------------------------------------------------------------------
+@app.post("/analyze")
+async def analyze_endpoint(file: UploadFile = File(...), mode: str = Form("gie")):
+    """mode=gie   -> Green Inference Engine: light model, router, heavy model only if escalated.
+    mode=heavy -> heavy model on the whole clip, no routing.
+    Returns the answer, all six probabilities, the routing trace (gie only) and a per-window
+    timeline built from whichever model gave the answer."""
+    model, config = _require_ready()
+    adaptive = _require_adaptive()
+    if mode not in MODES:
+        raise SERInputError("invalid_mode", f"mode must be one of {', '.join(MODES)}.")
+    request_id = uuid.uuid4().hex[:8]
+    t0 = time.monotonic()
+
+    raw_bytes = await file.read()
+    if len(raw_bytes) > config.max_upload_mb * 1024 * 1024:
+        raise SERInputError(
+            "file_too_large",
+            f"Upload is larger than the {config.max_upload_mb}MB limit this service accepts.",
+        )
+
+    y, duration_sec = await _off_loop(load_and_validate, raw_bytes, config)
+    t_validate = time.monotonic()
+
+    body = await _infer(analyze_adaptive, y, config.sample_rate, adaptive, model, mode, config.window_sec)
+    t_done = time.monotonic()
+
+    logger.info(
+        "analyze request_id=%s mode=%s duration_sec=%.2f branch=%s emotion=%s confidence=%.3f router=%s",
+        request_id, mode, duration_sec, body["branch_used"], body["emotion"], body["confidence"],
+        f"{body['routing']['router_score']:.4f}" if body["routing"] else "-",
+    )
+
+    return {
+        "request_id": request_id,
+        "duration_sec": round(duration_sec, 2),
+        **body,
+        "latency_ms": {
+            "validate_ms": round((t_validate - t0) * 1000, 1),
+            "analyze_ms": round((t_done - t_validate) * 1000, 1),
+            "total_ms": round((t_done - t0) * 1000, 1),
+        },
+    }
+
+
+@app.post("/youtube/audio")
+async def youtube_audio_endpoint(req: YouTubeRequest):
+    """Download a YouTube link's audio track and hand it back (base64 WAV), without analysing it.
+    The page then treats it exactly like a recording and sends it to /analyze."""
+    _, config = _require_ready()
+    if not config.youtube_enabled:
+        raise HTTPException(status_code=404, detail="YouTube analysis is not enabled on this server.")
+    wav_bytes, yt_info = await _off_loop(fetch_youtube_audio, req.url, config)
+    logger.info("youtube_audio url=%s bytes=%d", req.url, len(wav_bytes))
+    return {
+        "source": {"type": "youtube", "url": req.url, "title": yt_info.get("title")},
+        "audio_base64": base64.b64encode(wav_bytes).decode("ascii"),
     }

@@ -24,9 +24,11 @@ VENV_SITE = ROOT / "ser_api" / ".venv" / "Lib" / "site-packages"
 PART_BYTES = 95 * 1024 * 1024  # Vercel rejects any single file over 100 MB
 
 ROUTER_FILES = [
-    "serving_spec.json", "demo_clips_manifest.json", "notebook28_results.json",
-    "mfcc_scaler.joblib", "asca_minmax_scaler.joblib", "light_mfcc_mlp.joblib",
-    "router_recalibrated.joblib", "heavy_e2vplus_lr.joblib",
+    # v2 (served): notebook 31's real-voice light model + router; heavy = tier1b from artifacts/
+    "serving_spec_v2.json", "notebook31_summary.json",
+    "mfcc_scaler_v2.joblib", "light_mfcc_mlp_v2.joblib", "router_v2.joblib",
+    # shared by both versions
+    "asca_minmax_scaler.joblib", "demo_clips_manifest.json", "notebook28_results.json",
 ]
 
 
