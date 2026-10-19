@@ -83,6 +83,6 @@ FunASR/ModelScope team.
   adaptive routing research, hardware, deployment, debugging
 - Maitry Mahesh Mohite ([@maitry-mohite](https://github.com/maitry-mohite)): data collection,
   preprocessing, HuBERT layer-wise / CKA research, hardware
-- Tanvi Yerram ([@tanviyerram08](https://github.com/tanviyerram08)): preprocessing, acoustic
-  explainability research, hardware
+- Tanvi Yerram ([@tanviyerram08](https://github.com/tanviyerram08)): data collection,
+  preprocessing, acoustic explainability research, hardware, testing
 - Project guide: Dr. Sheetal Patil (research guidance, real-voice dataset)
